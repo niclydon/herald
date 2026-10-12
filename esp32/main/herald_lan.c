@@ -9,12 +9,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdatomic.h>
 
 #ifndef CONFIG_HOMEHUB_LAN_ADMIN
 #define CONFIG_HOMEHUB_LAN_ADMIN 0
 #endif
 #define JOBS 32
+#if CONFIG_HOMEHUB_SHOW
+#define BODY_MAX 24576
+#else
 #define BODY_MAX 4096
+#endif
+static atomic_bool authenticated_client;
+bool herald_lan_has_authenticated_client(void) {
+    return CONFIG_HOMEHUB_LAN_ADMIN && atomic_load(&authenticated_client);
+}
 static SemaphoreHandle_t lock;
 static httpd_handle_t server;
 typedef struct { char id[65], owner[65]; char *request; cJSON *result; int64_t done; } job_t;
@@ -25,7 +34,17 @@ extern const unsigned char cert_start[] asm("_binary_herald_cert_start");
 extern const unsigned char cert_end[] asm("_binary_herald_cert_end");
 extern const unsigned char key_start[] asm("_binary_herald_key_start");
 extern const unsigned char key_end[] asm("_binary_herald_key_end");
-static const char *commands[]={"led.set","led.pattern","led.clear","audio.test","audio.play","audio.speak","audio.stop","demo.show","wifi.scan","wifi.status","wifi.reconnect","device.info","device.health","device.diagnostics","device.discover","device.reboot","device.ota","settings.get","settings.set"};
+static const char *commands[]={
+#if CONFIG_HOMEHUB_LED_REACTIVE
+"led.reactive",
+#endif
+#if CONFIG_HOMEHUB_SHOW
+"show.play","show.stop",
+#endif
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+"ble.scan","ble.connect","ble.discover","ble.read","ble.write","ble.disconnect",
+#endif
+"led.set","led.pattern","led.clear","audio.test","audio.play","audio.speak","audio.stop","demo.show","wifi.scan","wifi.status","wifi.reconnect","device.info","device.health","device.diagnostics","device.discover","device.reboot","device.ota","settings.get","settings.set"};
 static bool admin_command(const char *s) { return !strcmp(s,"device.ota")||!strcmp(s,"device.reboot")||!strcmp(s,"wifi.reconnect"); }
 static bool readonly_command(const char *s) { return !strcmp(s,"device.info")||!strcmp(s,"device.health")||!strcmp(s,"device.diagnostics")||!strcmp(s,"wifi.status")||!strcmp(s,"settings.get")||!strcmp(s,"wifi.scan")||!strcmp(s,"device.discover"); }
 static bool identifier(const char *s) {
@@ -48,6 +67,7 @@ static bool authenticated(httpd_req_t *r) {
     snprintf(expected,sizeof(expected),"Bearer %s",CONFIG_HOMEHUB_LAN_TOKEN);
     size_t n=strlen(expected); unsigned int diff=(unsigned int)(strlen(got)^n);
     for(size_t i=0;i<n;i++) diff|=(unsigned char)expected[i]^(unsigned char)(i<strlen(got)?got[i]:0);
+    if(diff==0) atomic_store(&authenticated_client,true);
     return diff==0;
 }
 static cJSON *job_response(job_t *j) {

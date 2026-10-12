@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 void herald_lan_start(void);
+bool herald_lan_has_authenticated_client(void);
 void herald_lan_result(const char *id, cJSON *result); // takes ownership
 void noise_ctrl_lan_invoke(const char *json);
 #ifdef __cplusplus

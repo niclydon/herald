@@ -1283,6 +1283,32 @@ static char *build_register_json(void) {
     add_register_metadata_string(&metadata, params, "network_ssid", wifi_ssid);
 
     cJSON *commands = cJSON_CreateObject();
+#if CONFIG_HOMEHUB_SHOW
+    cJSON *show_req=cJSON_CreateObject(),*show_opt=cJSON_CreateObject();
+    cJSON_AddItemToObject(show_req,"audio_url",string_param("HTTPS PCM16 WAV, 8-48kHz, mono/stereo, <=2MiB."));
+    cJSON *timeline=cJSON_CreateObject();cJSON_AddStringToObject(timeline,"type","array");cJSON_AddStringToObject(timeline,"description","1-32 phases: pattern/colors as led.pattern, start_ms 0-86400000, duration_ms 1-86400000; speed_ms 20-60000 (300), brightness 0-100 (100).");cJSON_AddItemToObject(show_req,"timeline",timeline);
+    cJSON *sv=cJSON_CreateObject(),*sl=cJSON_CreateObject();cJSON_AddStringToObject(sv,"type","integer");cJSON_AddStringToObject(sv,"description","0-100, default 75.");cJSON_AddItemToObject(show_opt,"volume",sv);cJSON_AddStringToObject(sl,"type","boolean");cJSON_AddStringToObject(sl,"description","Repeat until stopped; default false.");cJSON_AddItemToObject(show_opt,"loop",sl);
+    add_command(commands,"show.play","Concurrent WAV and LED timeline. Preloads audio; latest active phase wins; gaps hold. Stop before replacing.",show_req,show_opt);
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,"show.play"),"timeout_ms",172860000);
+    add_command(commands,"show.stop","Stop show audio and LEDs; error if idle.",nullptr,nullptr);
+#endif
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+    auto ble_int=[](const char *d) { cJSON *p=cJSON_CreateObject();cJSON_AddStringToObject(p,"type","integer");cJSON_AddStringToObject(p,"description",d);return p; };
+    cJSON *bs=cJSON_CreateObject();cJSON_AddItemToObject(bs,"duration_ms",ble_int("1-60000, default 10000."));
+    add_command(commands,"ble.scan","Active BLE scan; up to 16 peers sorted by RSSI. Scan before connecting to random addresses.",nullptr,bs);
+    cJSON *bc=cJSON_CreateObject(),*bo=cJSON_CreateObject();cJSON_AddItemToObject(bc,"address",string_param("AA:BB:CC:DD:EE:FF; scan first for address type."));cJSON_AddItemToObject(bo,"timeout_ms",ble_int("100-60000, default 10000."));
+    add_command(commands,"ble.connect","Open one GATT client connection; disconnect it before another.",bc,bo);
+    cJSON *bh=cJSON_CreateObject();cJSON_AddItemToObject(bh,"handle",ble_int("Central connection handle."));
+    add_command(commands,"ble.discover","Enumerate services and characteristic UUIDs/properties.",cJSON_Duplicate(bh,true),nullptr);
+    add_command(commands,"ble.disconnect","Close the central connection.",cJSON_Duplicate(bh,true),nullptr);
+    cJSON_AddItemToObject(bh,"characteristic_uuid",string_param("4/8 hex digits or canonical 128-bit UUID; must be unique."));
+    add_command(commands,"ble.read","Read up to 512 bytes as value_hex.",cJSON_Duplicate(bh,true),nullptr);
+    cJSON_AddItemToObject(bh,"value_hex",string_param("Even-length hex, up to 512 bytes."));
+    cJSON *bw=cJSON_CreateObject(),*br=cJSON_CreateObject();cJSON_AddStringToObject(br,"type","boolean");cJSON_AddStringToObject(br,"description","Default false; true waits for each ATT response.");cJSON_AddItemToObject(bw,"with_response",br);
+    add_command(commands,"ble.write","Sequential MTU-3 writes; peripheral must support chunk reassembly. Errors identify the chunk.",bh,bw);
+    const char *ble_names[]={"ble.scan","ble.connect","ble.discover","ble.read","ble.write","ble.disconnect"};
+    for(const char *name:ble_names)cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,name),"timeout_ms",600000);
+#endif
 #if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
     cJSON_AddStringToObject(params,"short_name",CONFIG_HOMEHUB_SHORT_NAME);
     add_command(commands,"wifi.scan","Active Wi-Fi scan: ssid, rssi, channel, auth mode. Asynchronous.",nullptr,nullptr);
@@ -1307,22 +1333,35 @@ static char *build_register_json(void) {
     const char *channels[]={"r","g","b"};
     for(const char *channel:channels) cJSON_AddItemToObject(led_required,channel,number_param("Color intensity 0-255."));
     cJSON_AddItemToObject(led_optional,"brightness",number_param("Brightness 0-100, default 100; scaled by saved master brightness."));
-    add_command(commands,"led.set","Set one LED immediately and supersede any pattern.",led_required,cJSON_Duplicate(led_optional,true));
+    add_command(commands,"led.set","Set one LED; supersede patterns/reactive.",led_required,cJSON_Duplicate(led_optional,true));
     cJSON *pattern_required=cJSON_CreateObject();
     cJSON_AddItemToObject(pattern_required,"pattern",string_param("chase, alternate, fade or sparkle."));
     cJSON *colors=cJSON_CreateObject(); cJSON_AddStringToObject(colors,"type","array"); cJSON_AddStringToObject(colors,"description","1-16 colors, each [r,g,b] with integer channels 0-255.");
     cJSON_AddItemToObject(pattern_required,"colors",colors);
     cJSON_AddItemToObject(led_optional,"speed_ms",number_param("20-60000 ms, default 300."));
     cJSON_AddItemToObject(led_optional,"duration_ms",number_param("0 runs until stopped; otherwise 1-86400000 ms."));
-    add_command(commands,"led.pattern","Run a pattern asynchronously. Complete once on expiry or supersession by another LED command.",pattern_required,led_optional);
+    add_command(commands,"led.pattern","Async pattern; completes on expiry or supersession.",pattern_required,led_optional);
     cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,"led.pattern"),"timeout_ms",86460000);
-    add_command(commands,"led.clear","Stop any pattern and switch both LEDs off.",nullptr,nullptr);
+#if CONFIG_HOMEHUB_LED_REACTIVE
+    cJSON *reactive_optional=cJSON_CreateObject();
+    cJSON_AddItemToObject(reactive_optional,"mode",string_param("energy|spectrum|beat|duet|off"));
+    cJSON *reactive_sensitivity=number_param("0.1-3; default 1");
+    cJSON_ReplaceItemInObject(reactive_sensitivity,"type",cJSON_CreateString("number"));
+    cJSON_AddItemToObject(reactive_optional,"sensitivity",reactive_sensitivity);
+    cJSON_AddItemToObject(reactive_optional,"smoothing_ms",number_param("0-1000 ms; default 120"));
+    cJSON *reactive_colors=cJSON_CreateObject();
+    cJSON_AddStringToObject(reactive_colors,"type","array");
+    cJSON_AddStringToObject(reactive_colors,"description","1-2 [r,g,b] arrays");
+    cJSON_AddItemToObject(reactive_optional,"colors",reactive_colors);
+    add_command(commands,"led.reactive","Speaker-reactive LEDs until stopped.",nullptr,reactive_optional);
+#endif
+    add_command(commands,"led.clear","Stop effects; LEDs off.",nullptr,nullptr);
 #endif
 #if CONFIG_HOMEHUB_I2S_SPEAKER
     cJSON *audio_optional = cJSON_CreateObject();
     cJSON *volume = cJSON_CreateObject();
     cJSON_AddStringToObject(volume, "type", "integer");
-    cJSON_AddStringToObject(volume, "description", "Volume 0-100, default 75. Lower it if speech distorts.");
+    cJSON_AddStringToObject(volume, "description", "Volume 0-100; default 75.");
     cJSON_AddItemToObject(audio_optional, "volume", volume);
     cJSON *speech_required = cJSON_CreateObject();
     cJSON_AddItemToObject(speech_required, "text", string_param("Plain text to speak, 1-1000 UTF-8 bytes. Split longer replies into ordered chunks."));

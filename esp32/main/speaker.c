@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Bare N16R8 board and NS4168: wiring confirmed by the user's labeled photos.
 // GPIO4=BCLK, GPIO5=LRCLK, GPIO6=DIN, amplifier V=3V3, G=GND.
+#include "sdkconfig.h"
 #include "speaker.h"
+#include "esp_timer.h"
+#if CONFIG_HOMEHUB_SHOW
+#include "show.h"
+#endif
 #include "speaker_wav.h"
 #include "cJSON.h"
 #include "driver/i2s_std.h"
@@ -31,6 +36,10 @@ static bool demo_active;
 static int demo_style=1;
 static float demo_seconds;
 #endif
+#if CONFIG_HOMEHUB_LED_REACTIVE
+#include "led_reactive.h"
+static unsigned output_rate=16000;
+#endif
 static i2s_chan_handle_t tx;
 static SemaphoreHandle_t lock;
 static atomic_bool stop_requested;
@@ -45,6 +54,9 @@ static cJSON *result(bool ok, const char *message) {
     return r;
 }
 static esp_err_t rate(uint32_t hz) {
+#if CONFIG_HOMEHUB_LED_REACTIVE
+    output_rate=hz;
+#endif
     i2s_std_clk_config_t clk=I2S_STD_CLK_DEFAULT_CONFIG(hz);
     esp_err_t e=i2s_channel_reconfig_std_clock(tx,&clk);
     return e==ESP_OK ? i2s_channel_enable(tx) : e;
@@ -60,6 +72,9 @@ static bool write_samples(const int16_t *pcm, size_t bytes) {
 #endif
     size_t done=0;
     esp_err_t e=i2s_channel_write(tx,pcm,bytes,&done,1000);
+#if CONFIG_HOMEHUB_LED_REACTIVE
+    if(done) led_reactive_tap(pcm,done/4,output_rate);
+#endif
     return e==ESP_OK && done==bytes;
 }
 static void finish_audio(void) {
@@ -111,6 +126,7 @@ static uint8_t *download(const char *url,const char *text,size_t *n) {
     buf=heap_caps_malloc(AUDIO_MAX+1,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
     if(!buf) goto out;
     while(*n<=AUDIO_MAX) {
+        if(atomic_load(&stop_requested)) { free(buf); buf=NULL; break; }
         int got=esp_http_client_read(h,(char*)buf+*n,AUDIO_MAX+1-*n);
         if(got<0) { free(buf); buf=NULL; break; }
         if(!got) break;
@@ -124,9 +140,10 @@ out:
     }
     free(body); esp_http_client_close(h); esp_http_client_cleanup(h); return buf;
 }
-static bool play(const uint8_t *data,size_t n,int volume) {
+static bool play_timed(const uint8_t *data,size_t n,int volume,void (*started)(int64_t,void *),void *arg) {
     speaker_wav_t w;
     if(!speaker_parse_wav(data,n,&w) || rate(w.rate)!=ESP_OK) return false;
+    if(started) started(esp_timer_get_time(),arg);
     int16_t pcm[512]; bool ok=true;
     for(size_t pos=0;pos<w.bytes && ok;) {
         size_t frames=(w.bytes-pos)/(w.channels*2); if(frames>256) frames=256;
@@ -143,6 +160,27 @@ static bool play(const uint8_t *data,size_t n,int volume) {
     }
     finish_audio(); return ok;
 }
+static bool play(const uint8_t *data,size_t n,int volume) {
+    return play_timed(data,n,volume,NULL,NULL);
+}
+#if CONFIG_HOMEHUB_SHOW
+bool speaker_show_claim(void) {
+    if(!tx||!lock||xSemaphoreTake(lock,0)!=pdTRUE) return false;
+    atomic_store(&stop_requested,false); return true;
+}
+void speaker_show_release(void) { xSemaphoreGive(lock); }
+void speaker_show_cancel(void) { atomic_store(&stop_requested,true); }
+bool speaker_show_cancelled(void) { return atomic_load(&stop_requested); }
+uint8_t *speaker_show_prepare(const char *url,size_t *n) {
+    uint8_t *data=download(url,NULL,n); speaker_wav_t wav;
+    if(data&&!speaker_parse_wav(data,*n,&wav)) { free(data);return NULL; }
+    return data;
+}
+bool speaker_show_play(const uint8_t *data,size_t n,int volume,void (*started)(int64_t,void *),void *arg) {
+    if(atomic_load(&stop_requested)) return false;
+    return play_timed(data,n,volume,started,arg);
+}
+#endif
 #if CONFIG_HOMEHUB_EXTERNAL_RGB_TEST
 static bool demo_music(int volume) {
     const float notes[]={261.63f,329.63f,392.f,523.25f,392.f,329.63f,440.f,523.25f};
@@ -226,6 +264,9 @@ cJSON *speaker_stop_command(cJSON *params) {
         cJSON *r=result(false,"audio.stop takes no parameters");
         cJSON_AddStringToObject(cJSON_GetObjectItem(r,"error"),"code","invalid_params"); return r;
     }
+#if CONFIG_HOMEHUB_SHOW
+    show_request_stop();
+#endif
     atomic_store(&stop_requested,true);
     return result(true,"stop requested");
 }

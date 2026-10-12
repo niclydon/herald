@@ -43,11 +43,23 @@ if(CONFIG_HOMEHUB_EXTERNAL_RGB_TEST)
     list(APPEND GADGET_SRCS "external_rgb_test.c")
 endif()
 
+if(CONFIG_HOMEHUB_LED_REACTIVE)
+    list(APPEND GADGET_SRCS "led_reactive.c" "led_reactive_dsp.c")
+endif()
+
 if(CONFIG_HOMEHUB_REMOTE_LEDS)
     list(APPEND GADGET_SRCS "remote_led.c")
 endif()
 if(CONFIG_HOMEHUB_REMOTE_MANAGEMENT)
     list(APPEND GADGET_SRCS "remote_device.c")
+endif()
+
+if(CONFIG_HOMEHUB_SHOW)
+    list(APPEND GADGET_SRCS "show.c")
+endif()
+
+if(CONFIG_HOMEHUB_BLE_CENTRAL)
+    list(APPEND GADGET_SRCS "ble_central.c")
 endif()
 
 if(CONFIG_HOMEHUB_LAN_CONTROL)

@@ -41,6 +41,23 @@ menu "ESP32 Device SDK"
         depends on HOMEHUB_I2S_SPEAKER
         default ""
 
+    config HOMEHUB_SHOW
+        bool "Herald synchronized audio and LED timelines"
+        depends on HOMEHUB_REMOTE_LEDS && HOMEHUB_I2S_SPEAKER
+        default n
+        help
+            Download a WAV once, then coordinate concurrent audio and LED phases.
+
+    config HOMEHUB_BLE_CENTRAL
+        bool "Herald BLE central commands"
+        depends on BT_NIMBLE_ENABLED
+        select BT_NIMBLE_ROLE_CENTRAL
+        select BT_NIMBLE_ROLE_OBSERVER
+        default n
+        help
+            Keep NimBLE running after provisioning; expose bounded asynchronous
+            scan and GATT client commands. One central connection at a time.
+
     config HOMEHUB_LAN_CONTROL
         bool "Herald authenticated HTTPS LAN command transport"
         depends on HOMEHUB_REMOTE_MANAGEMENT && HOMEHUB_REMOTE_LEDS && HOMEHUB_I2S_SPEAKER
@@ -440,3 +457,10 @@ menu "ESP32 Device SDK"
             locks read protection. No shared software attestation key is used.
 
 endmenu
+
+config HOMEHUB_LED_REACTIVE
+    bool "Realtime speaker-reactive LEDs"
+    depends on HOMEHUB_REMOTE_LEDS && HOMEHUB_I2S_SPEAKER && SPIRAM
+    default n
+    help
+        Analyze outgoing PCM on the existing LED worker. Requires PSRAM.

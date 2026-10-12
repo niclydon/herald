@@ -68,3 +68,51 @@ test('authenticated Streamable HTTP serves MCP and rejects bad auth and origins'
   const call=await send({jsonrpc:'2.0',id:3,method:'tools/call',params:{name:'herald_device_info',arguments:{}}});assert.equal(call.status,200,call.text);assert.equal(JSON.parse(call.text).result.isError,false);
  }finally{child.kill();await new Promise(r=>child.once('exit',r));}
 });
+
+test('BLE schemas validate MAC, UUID, hex, handles and scan bounds',()=>{
+ assert.throws(()=>commands['ble.connect'].parse({address:'bad'}));
+ assert.throws(()=>commands['ble.scan'].parse({duration_ms:60001}));
+ assert.throws(()=>commands['ble.read'].parse({handle:-1,characteristic_uuid:'2a19'}));
+ assert.throws(()=>commands['ble.read'].parse({handle:1,characteristic_uuid:'not-a-uuid'}));
+ assert.throws(()=>commands['ble.write'].parse({handle:1,characteristic_uuid:'2a19',value_hex:'abc'}));
+ assert.throws(()=>commands['ble.write'].parse({handle:1,characteristic_uuid:'2a19',value_hex:'zz'}));
+ assert.throws(()=>commands['ble.write'].parse({handle:1,characteristic_uuid:'2a19',value_hex:'00'.repeat(513)}));
+ assert.equal(commands['ble.write'].parse({handle:1,characteristic_uuid:'2a19',value_hex:'aabb',with_response:true}).with_response,true);
+});
+
+test('show timeline schema enforces timing, color, ordering, and HTTPS limits', async()=>{
+ const {commands}=await import('../dist/schemas.js');
+ const phase={pattern:'fade',colors:[[255,0,0]],start_ms:0,duration_ms:100};
+ const valid={audio_url:'https://example.com/show.wav',timeline:[phase]};
+ assert.equal(commands['show.play'].safeParse(valid).success,true);
+ for(const bad of [
+  {...valid,audio_url:'http://example.com/show.wav'},
+  {...valid,audio_url:'https://user:pass@example.com/show.wav'},
+  {...valid,volume:101}, {...valid,loop:1}, {...valid,timeline:[]},
+  {...valid,timeline:[{...phase,duration_ms:0}]},
+  {...valid,timeline:[{...phase,colors:[[256,0,0]]}]},
+  {...valid,timeline:[{...phase,speed_ms:19}]},
+  {...valid,timeline:[{...phase,start_ms:10},phase]},
+ ]) assert.equal(commands['show.play'].safeParse(bad).success,false);
+ assert.equal(commands['show.stop'].safeParse({}).success,true);
+ assert.equal(commands['show.stop'].safeParse({extra:true}).success,false);
+});
+test('admin MCP exposes OTA and dispatches through the authenticated client',async()=>{
+ const adminFile=join(dir,'private/admin-client.json');
+ writeFileSync(adminFile,JSON.stringify({...config,admin:true}),{mode:0o600});
+ const transport=new StdioClientTransport({command:process.execPath,args:[resolve('dist/server.js')],env:{HERALD_CONFIG:adminFile,HERALD_OWNER:'ota-test'}});
+ const mcp=new Client({name:'herald-ota-test',version:'1.0.0'});
+ try{
+  await mcp.connect(transport);
+  assert((await mcp.listTools()).tools.some(t=>t.name==='herald_device_ota'));
+  const result=await mcp.callTool({name:'herald_device_ota',arguments:{url:'https://example.com/firmware.bin'}});
+  assert.equal(result.isError,false);
+  assert(calls.some(c=>c.owner==='ota-test'&&c.command==='device.ota'&&c.params.url==='https://example.com/firmware.bin'));
+ }finally{await mcp.close();}
+});
+
+test('reactive schema accepts modes and rejects invalid ranges and colors',()=>{
+ for(const mode of ['energy','spectrum','beat','duet','off']) assert.equal(commands['led.reactive'].safeParse({mode}).success,true);
+ assert.equal(commands['led.reactive'].safeParse({sensitivity:0.1,smoothing_ms:0,colors:[[0,255,10]]}).success,true);
+ for(const params of [{mode:'unknown'},{sensitivity:0},{smoothing_ms:1.5},{colors:[]},{colors:[[1,2,256]]},{unknown:1}]) assert.equal(commands['led.reactive'].safeParse(params).success,false);
+});

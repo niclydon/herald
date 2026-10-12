@@ -87,3 +87,12 @@ command in this checkout.
 authenticated HTTPS, with independent job results, bounded retention and LAN
 ownership leases. Firmware LAN control and its administrative subset are
 separately opt-in Kconfig options. Muse commands remain available.
+
+## BLE central
+
+Firmware 999.0.3 adds the six asynchronous `ble.*` commands. See the
+[BLE guide](herald-ble.md) for parameters, address types, write semantics and
+coexistence checks.
+
+See [synchronized shows](herald-show.md) for show.play and show.stop,
+which coordinate the existing audio and LED engines on a shared timeline.

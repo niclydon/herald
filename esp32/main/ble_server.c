@@ -1,3 +1,7 @@
+#include "sdkconfig.h"
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+#include "ble_central.h"
+#endif
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -916,6 +920,9 @@ static void on_sync(void) {
 }
 
 static void on_reset(int reason) {
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+    ble_central_reset();
+#endif
     ESP_LOGW(TAG, "reset reason=%d", reason);
     s_synced = false;
     s_advertising_active = false;

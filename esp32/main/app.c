@@ -1,3 +1,10 @@
+#include "sdkconfig.h"
+#if CONFIG_HOMEHUB_SHOW
+#include "show.h"
+#endif
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+#include "ble_central.h"
+#endif
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -665,7 +672,7 @@ static void shutdown_ble_task(void *arg) {
     (void)arg;
     vTaskDelay(pdMS_TO_TICKS(1000));
     ui_set_ble("off");
-#if CONFIG_MUSE_ENABLED
+#if CONFIG_MUSE_ENABLED || CONFIG_HOMEHUB_BLE_CENTRAL
     // Muse's phone-setup service shares the server: stop setup advertising only.
     ble_server_stop_advertising(false);
 #else
@@ -692,7 +699,7 @@ static bool complete_setup_and_stop_ble(const char *reason, uint32_t session_gen
         ESP_LOGW(TAG, "failed to start BLE stop task");
         vTaskDelay(pdMS_TO_TICKS(1000));
         ui_set_ble("off");
-#if CONFIG_MUSE_ENABLED
+#if CONFIG_MUSE_ENABLED || CONFIG_HOMEHUB_BLE_CENTRAL
         ble_server_stop_advertising(false);
 #else
         ble_server_full_shutdown();
@@ -1856,7 +1863,21 @@ static cJSON *bug_report_command(
 static cJSON *on_ws_command(
     const char *command, cJSON *params, const char *request_id,
     noise_ctrl_session_generation_t session_generation) {
+#if CONFIG_HOMEHUB_SHOW
+    if(!strcmp(command,"show.play")||!strcmp(command,"show.stop"))
+        return show_command(command,params,request_id,session_generation);
+#endif
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+    if (!strcmp(command,"ble.scan") || !strcmp(command,"ble.connect") ||
+        !strcmp(command,"ble.discover") || !strcmp(command,"ble.read") ||
+        !strcmp(command,"ble.write") || !strcmp(command,"ble.disconnect"))
+        return ble_central_command(command,params,request_id,session_generation);
+#endif
 #if CONFIG_HOMEHUB_REMOTE_LEDS
+#if CONFIG_HOMEHUB_LED_REACTIVE
+    if(!strcmp(command,"led.reactive"))
+        return remote_led_command(command,params,request_id,session_generation);
+#endif
     if(!strcmp(command,"led.set") || !strcmp(command,"led.pattern") || !strcmp(command,"led.clear"))
         return remote_led_command(command,params,request_id,session_generation);
 #endif
@@ -2131,6 +2152,9 @@ static void start_ble_setup_server_if_needed(void) {
         .on_client_disconnected = on_client_disconnected,
         .on_pairing_client_finished = on_pairing_client_finished,
     };
+#if CONFIG_HOMEHUB_BLE_CENTRAL
+    ble_central_init();
+#endif
     ble_server_start(identity_ble_name(), &cb);
     s_ble_started = true;
     heap_snapshot("after ble_start");
@@ -2453,16 +2477,19 @@ static void on_ws_control_status(const char *status) {
 // startup. Marking the running image valid (a) commits a PENDING_VERIFY image
 // so the bootloader stops trying to revert it, and (b) blesses a normal boot
 // so the running slot becomes a valid rollback target for the *next* OTA.
-// We gate validation on the control WS coming up: that's the channel a future
-// device.ota would arrive on, so if the new image can't reach it, reverting is
-// the only way to keep the device recoverable.
+// Validate through Muse, or an authenticated LAN client when LAN admin is
+// enabled. Either proves that the next OTA can reach this firmware.
 static void ota_verify_task(void *arg) {
     (void)arg;
     int64_t deadline = esp_timer_get_time() + OTA_VERIFY_TIMEOUT_US;
     while (esp_timer_get_time() < deadline) {
-        if (noise_ctrl_is_connected()) {
+        bool reachable = noise_ctrl_is_connected();
+#if CONFIG_HOMEHUB_LAN_CONTROL
+        reachable = reachable || herald_lan_has_authenticated_client();
+#endif
+        if (reachable) {
             if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
-                ESP_LOGI(TAG, "OTA image validated (control WS up)");
+                ESP_LOGI(TAG, "OTA image validated (authenticated control reachable)");
             } else {
                 ESP_LOGE(TAG, "esp_ota_mark_app_valid_cancel_rollback failed");
             }
@@ -2696,7 +2723,7 @@ void app_run(void) {
     } else {
         ui_set_ble("off");
         ESP_LOGI(TAG, "BLE setup disabled; long-press reset to pair again");
-#if CONFIG_MUSE_ENABLED && CONFIG_SPIRAM
+#if (CONFIG_MUSE_ENABLED && CONFIG_SPIRAM) || CONFIG_HOMEHUB_BLE_CENTRAL
         // Muse may turn on its BLE companion later. The controller needs a
         // 30 KB internal block that TLS and the VM session leave fragmented,
         // so bring the stack up now; it stays silent until advertising is on.

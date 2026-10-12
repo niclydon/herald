@@ -1,5 +1,12 @@
 # Changes
 
+## 2026-10-12 — Speaker-reactive LED candidate 999.0.6
+
+Added gated `led.reactive` modes on the existing PCM tap and LED worker,
+including show ownership and MCP validation. Build and host verification pass;
+physical CPU/audio/LED timing awaits operator OTA validation. See
+[reactive mode](esp32/devices/herald-reactive.md). No hardware deployment occurred.
+
 ## 2026-10-12 — Record the hardware and verification history
 
 Added a [current-state guide](docs/herald-current-state.md) and a detailed

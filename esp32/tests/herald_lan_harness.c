@@ -26,9 +26,12 @@ static httpd_req_t req(const char*id,const char*owner,const char*cmd){
 }
 static void check(httpd_req_t*r,const char*status){post(r);assert(!strcmp(r->status,status));free(r->response);r->response=NULL;r->offset=0;}
 int main(void){
- herald_lan_start();httpd_req_t r=req("a","one","led.clear");r.auth="wrong";check(&r,"401 Unauthorized");assert(invoked==0);
+ assert(!herald_lan_has_authenticated_client());
+ herald_lan_start();httpd_req_t r=req("a","one","led.clear");r.auth="wrong";check(&r,"401 Unauthorized");assert(invoked==0);assert(!herald_lan_has_authenticated_client());
  r=req("a","one","led.clear");r.content_len=BODY_MAX+1;check(&r,"413 Payload Too Large");assert(invoked==0);
+#if !CONFIG_HOMEHUB_LAN_ADMIN
  r=req("a","one","device.ota");check(&r,"403 Forbidden");assert(invoked==0);
+#endif
  r=req("a","one","led.clear");check(&r,"202 Accepted");assert(invoked==1);
  r=req("a","one","led.clear");check(&r,"200 OK");assert(invoked==1);
  r=req("a","one","led.set");check(&r,"409 Conflict");assert(invoked==1);
@@ -38,6 +41,12 @@ int main(void){
  result=cJSON_CreateObject();cJSON_AddBoolToObject(result,"ok",false);herald_lan_result("a",result);
  assert(cJSON_IsTrue(cJSON_GetObjectItem(jobs[0].result,"ok")));
  now=121000000;r=req("b","two","led.clear");check(&r,"202 Accepted");assert(invoked==3);
+#if CONFIG_HOMEHUB_LAN_ADMIN
+ assert(herald_lan_has_authenticated_client());
+ r=req("ota","two","device.ota");check(&r,"202 Accepted");assert(invoked==4);
+#else
+ assert(!herald_lan_has_authenticated_client());
+#endif
  for(int i=0;i<JOBS;i++){free(jobs[i].request);cJSON_Delete(jobs[i].result);memset(&jobs[i],0,sizeof(jobs[i]));}
  puts("HTTPS auth, body bounds, admin policy, idempotency, lease isolation and completion ownership passed");
 }

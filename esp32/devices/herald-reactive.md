@@ -1,0 +1,24 @@
+# Herald realtime speaker-reactive LEDs
+
+Firmware candidate 999.0.6, HW678 N16R8. The `xiao-s3` build helper remains a compatibility alias; wiring and drivers are unchanged. Code is isolated in the `workbench/herald-reactive` checkout, based on the current local source snapshot including existing uncommitted BLE/show/OTA work. Original checkout was not modified. Nothing was flashed or deployed.
+
+`led.reactive` accepts optional `mode` (`energy`, `spectrum`, `beat`, `duet`, `off`), `sensitivity` (0.1–3, default 1), `smoothing_ms` (integer 0–1000, default 120), and one or two RGB colors (integer channels 0–255). Defaults are amber `[255,150,0]` and blue `[100,150,255]`; one supplied color is copied to both LEDs. Beat always pulses white. MCP exposes `herald_led_reactive` with the same schema. The start returns `_async` immediately; its eventual result reports supersession when another LED command or show.stop stops it. Mode off returns immediate success and clears both LEDs.
+
+The existing demo's shared `speaker.c:write_samples` I2S tap is generalized. All playback paths pass through it after volume scaling and mono mixing. Only bytes accepted by I2S enter analysis. This is an output-buffer tap, not a microphone: actual acoustic/DMA latency remains to be measured. There is no stereo source separation after Herald's mono mix.
+
+A single speaker producer accumulates 50 ms windows, sending to a two-window queue with zero wait. The existing Hal.led worker consumes them every 20 ms; no new task is created. Old generations and windows over 150 ms old are discarded. Queue saturation drops analysis windows instead of waiting on the audio writer. Analysis is disabled on stop, and partial windows cannot leak into a replacement session.
+
+- Energy: PCM RMS, sensitivity scaling, exponential envelope. No FFT.
+- Spectrum: Hann window and radix-2 FFT, 60–250 Hz and 2–8 kHz band RMS. Independent AGC with 100 ms attack / 2 s release; silence floor prevents noise normalization. At lower sample rates only frequencies below Nyquist are available.
+- Beat: positive spectral flux in low-band bins, adaptive threshold divided by sensitivity, minimum threshold and refractory interval. White pulse for 80 ms followed by a 150 ms exponential decay. Pulse is unsmoothed; `smoothing_ms` applies to continuous modes.
+- Duet: 100–300 Hz plus 25% weighting of 300–600 Hz harmonics versus 300–800 Hz. This is approximate spectral weighting. Both singers and accompaniment can activate both LEDs; it does not identify voices, gender or individuals.
+
+Reactive mode takes LED ownership from patterns and show timelines without stopping show audio. A show started while reactive is active also leaves LEDs reactive. After takeover the old timeline never resumes, even if reactive mode is subsequently cleared. show.stop cancels show audio and requests reactive stop on the LED worker. Normal show completion leaves an independently started reactive mode running, fading with silence. Demo graphics cannot overwrite reactive ownership.
+
+Kconfig `HOMEHUB_LED_REACTIVE` defaults off and requires remote LEDs, I2S speaker and PSRAM. The Herald profile explicitly enables it. Existing partitions and security settings are preserved; signing a development OTA image does not enable hardware Secure Boot.
+
+Resource costs from source: approximately 42 KiB PSRAM for producer/consumer windows and FFT scratch, plus approximately 9.5 KiB queue storage and kernel overhead. FFT lengths are 512–4096 for 8–48 kHz inputs; at 48 kHz the upper bound is 491,520 butterflies/second at 20 analyses/second. Energy mode does 8,000–48,000 RMS sample updates/second. Hann generation uses an oscillator recurrence instead of per-sample trigonometric calls. These are operation/allocation counts, not measured ESP CPU percentages or proof of deadline compliance. Hardware CPU, LED latency, audio underruns and BLE coexistence must be assessed after OTA.
+
+Validation: IDF v6.0.1 build and check_sizes passed. Signed image is 1,511,424 bytes; 585,728 bytes (572 KiB) remain in each 2 MiB OTA slot. Full registration with 63-character node/display names is 8,112 bytes, below 8,192. New host tests cover parameter validation, RMS/smoothing, band discrimination at 8–48 kHz, synthetic bass onset/pulse/decay, real worker/tap ownership, silence, stopping and supersession. MCP schema tests pass. Full firmware regression run passed 241 tests with one unavailable host crypto test skipped.
+
+OTA candidate: `build-xiao-s3/muse-gadget.bin`. It contains the existing private identity/configuration inputs; keep it local. For operator validation, start a duet track, activate `led.reactive` with mode duet, compare the two bands, then test energy/spectrum/beat, silence, pattern/set/clear replacement, show.stop, and simultaneous BLE scanning/GATT. Listen for underruns and compare visible response latency before approving the candidate for routine use.

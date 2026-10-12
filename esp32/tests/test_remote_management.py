@@ -10,7 +10,7 @@ class RemoteManagement(unittest.TestCase):
     def test_pattern_worker_lifecycle(self):
         with tempfile.TemporaryDirectory() as temp:
             exe=pathlib.Path(temp)/'led'
-            subprocess.run(['cc','-Wall','-Wextra','-Werror','-Wno-deprecated-declarations','-fsanitize=address','-I',str(ROOT/'tests/remote_fakes'),'-I',str(ROOT/'main'),'-I',str(CJSON),str(ROOT/'main/remote_led.c'),str(ROOT/'tests/remote_led_harness.c'),str(CJSON/'cJSON.c'),'-lm','-o',str(exe)],check=True,capture_output=True)
+            subprocess.run(['cc','-DCONFIG_HOMEHUB_SHOW=1','-DportMAX_DELAY=0xffffffffU','-Wall','-Wextra','-Werror','-Wno-deprecated-declarations','-fsanitize=address','-I',str(ROOT/'tests/remote_fakes'),'-I',str(ROOT/'main'),'-I',str(CJSON),str(ROOT/'main/remote_led.c'),str(ROOT/'tests/remote_led_harness.c'),str(CJSON/'cJSON.c'),'-lm','-o',str(exe)],check=True,capture_output=True)
             out=subprocess.run([str(exe)],check=True,capture_output=True,text=True)
             self.assertIn('200 completions passed; one worker task',out.stdout)
     def test_real_registration_fits_and_preserves_commands(self):
@@ -20,13 +20,16 @@ class RemoteManagement(unittest.TestCase):
 #include <cstdlib>
 #include <cstring>
 #include "cJSON.h"
+#define CONFIG_HOMEHUB_LED_REACTIVE 1
+#define CONFIG_HOMEHUB_SHOW 1
+#define CONFIG_HOMEHUB_BLE_CENTRAL 1
 #define CONFIG_HOMEHUB_REMOTE_MANAGEMENT 1
 #define CONFIG_HOMEHUB_REMOTE_LEDS 1
 #define CONFIG_HOMEHUB_I2S_SPEAKER 1
 #define CONFIG_HOMEHUB_EXTERNAL_RGB_TEST 1
 #define CONFIG_HOMEHUB_TUNNEL 1
 #define CONFIG_HOMEHUB_SHORT_NAME "Hal"
-static char s_wifi_ssid[33],s_node_id[]="homelink-000001",s_display_name[]="Herald",s_register_req_id[40];
+static char s_wifi_ssid[33],s_node_id[]="nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",s_display_name[]="ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",s_register_req_id[40];
 static void copy_wifi_ssid(char *out,size_t n) { snprintf(out,n,"01234567890123456789012345678901"); }
 static void make_uuid(char *out,size_t n) { snprintf(out,n,"01234567-0123-0123-0123-012345678901"); }
 struct esp_app_desc_t { const char *version; };
@@ -42,8 +45,8 @@ static bool ota_is_enabled() { return true; }
             raw=subprocess.run([str(exe)],check=True,capture_output=True,text=True).stdout.strip()
             self.assertLess(len(raw.encode()),8192)
             data=json.loads(raw); commands=data['params']['commands_v2']
-            self.assertEqual(data['params']['display_name'],'Herald')
-            for command in ('led.set','led.pattern','led.clear','audio.stop','wifi.scan','wifi.status','wifi.reconnect','device.reboot','device.info','device.diagnostics','settings.get','settings.set','demo.show','audio.test','audio.play','audio.speak','device.health','device.ota','device.discover'):
+            self.assertEqual(data['params']['display_name'],'d'*63)
+            for command in ('show.play','show.stop','ble.scan','ble.connect','ble.discover','ble.read','ble.write','ble.disconnect','led.reactive','led.set','led.pattern','led.clear','audio.stop','wifi.scan','wifi.status','wifi.reconnect','device.reboot','device.info','device.diagnostics','settings.get','settings.set','demo.show','audio.test','audio.play','audio.speak','device.health','device.ota','device.discover'):
                 self.assertIn(command,commands)
             print(f'Herald full registration: {len(raw.encode())} bytes')
     def test_new_advertisements_match_dispatch_gates(self):

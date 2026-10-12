@@ -148,7 +148,7 @@ nor audio.stop aborts OTA, scans, or an in-flight TTS HTTP download.
 - The device has 32 bounded job slots. Completed results are retained for at
   least 60 seconds and then become eligible for reuse; running jobs are never
   evicted. A full table returns 503. Reboots discard all jobs and leases.
-- Request bodies are limited to 4 KiB; HTTPS has three socket slots. The shared
+- Request bodies are limited to 24 KiB with show support (4 KiB otherwise); HTTPS has three socket slots. The shared
   client reuses one socket. This is a small gadget, not a high-throughput API.
 - TLS uses the per-device self-signed certificate and a separate bearer token.
   Source-only distribution, no secure boot or flash encryption, and the upstream
@@ -212,3 +212,23 @@ and administrative filtering. Firmware host tests compile the real LAN handlers
 with ASAN to exercise authentication, body bounds, leases, deduplication and
 result ownership. The hardware test verifies those paths against the ESP32;
 its logs contain neither the bearer token nor spoken-response credentials.
+
+## BLE peripherals
+
+Central-enabled firmware (999.0.3+) exposes `herald_ble_scan`, `herald_ble_connect`,
+`herald_ble_discover`, `herald_ble_read`, `herald_ble_write`, and
+`herald_ble_disconnect`. These tools return jobs immediately; poll with
+`herald_job`. See the [BLE guide](../esp32/devices/herald-ble.md). Older firmware
+rejects these commands; check `herald_describe` before invoking them.
+
+### Synchronized shows
+
+Use `herald_show_play` / `herald_show_stop` in MCP, or CLI
+`herald show.play "$(cat show.json)"`.
+The [show guide](../esp32/devices/herald-show.md) documents timeline semantics,
+limits, cancellation, and a complete example. Poll the returned job for completion.
+
+With LAN administration enabled, an authenticated LAN request after reboot
+also validates an OTA image. The MCP client should reconnect and call
+`device.info` within five minutes; Muse is not required for that validation.
+The administrative option enables OTA, reboot, and Wi-Fi reconnect together.

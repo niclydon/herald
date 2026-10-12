@@ -9,10 +9,10 @@ export function createServer(client:HeraldClient) {
     if(admin.has(name)&&!client.config.admin) continue;
     server.registerTool('herald_'+name.replaceAll('.','_'),{
       description:descriptions[name as Command],inputSchema:schema,
-      annotations:{readOnlyHint:reads.has(name),destructiveHint:admin.has(name),idempotentHint:reads.has(name)||['led.set','led.clear','audio.stop','settings.set'].includes(name),openWorldHint:['audio.play','audio.speak','demo.show','device.discover','device.ota'].includes(name)}
+      annotations:{readOnlyHint:reads.has(name),destructiveHint:admin.has(name),idempotentHint:reads.has(name)||['led.set','led.clear','audio.stop','settings.set'].includes(name),openWorldHint:['show.play','audio.play','audio.speak','demo.show','device.discover','device.ota'].includes(name)}
     },async(params:Record<string,unknown>)=>{
       try {
-        const asynchronous=['led.pattern','audio.play','audio.speak','demo.show','device.ota','device.discover','wifi.scan','wifi.reconnect'].includes(name);
+        const asynchronous=name.startsWith('ble.')||['show.play','led.pattern','led.reactive','audio.play','audio.speak','demo.show','device.ota','device.discover','wifi.scan','wifi.reconnect'].includes(name);
         const result=await client.invoke(name,params,asynchronous?0:10000);
         return output(result,result.result?.ok===false);
       } catch(e) {return output({error:(e as Error).message},true);}

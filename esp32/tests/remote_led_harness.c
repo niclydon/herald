@@ -1,5 +1,10 @@
 #include "remote_led.h"
 #include "cJSON.h"
+#if CONFIG_HOMEHUB_LED_REACTIVE
+#include "led_reactive.h"
+#include <math.h>
+static struct { unsigned head,count,size; unsigned char data[2][5000]; } windows;
+#endif
 #include "freertos/FreeRTOS.h"
 #include <assert.h>
 #include <stdio.h>
@@ -12,9 +17,21 @@ void *xSemaphoreCreateMutex(void) { return &mutex; }
 int xSemaphoreTake(void *m,unsigned delay) { (void)m;(void)delay;return 1; }
 void xSemaphoreGive(void *m) { (void)m; }
 void vSemaphoreDelete(void *m) { (void)m; }
-void *xQueueCreate(unsigned n,unsigned size) { assert(n==8 && size==sizeof(void *)); return queue; }
-int xQueueSend(void *q,const void *value,unsigned delay) { (void)q;(void)delay; if(count==8)return 0;queue[(head+count++)%8]=*(void *const *)value;return 1; }
-int xQueueReceive(void *q,void *value,unsigned delay) { (void)q;(void)delay;if(!count)return 0;*(void **)value=queue[head];head=(head+1)%8;count--;return 1; }
+void *xQueueCreate(unsigned n,unsigned size) {
+#if CONFIG_HOMEHUB_LED_REACTIVE
+if(n==2) { assert(size<=5000);windows.size=size;return &windows; }
+#endif
+assert(n==8 && size==sizeof(void *)); return queue; }
+int xQueueSend(void *q,const void *value,unsigned delay) { (void)q;(void)delay;
+#if CONFIG_HOMEHUB_LED_REACTIVE
+if(q==&windows) { if(windows.count==2) return 0;memcpy(windows.data[(windows.head+windows.count++)%2],value,windows.size);return 1; }
+#endif
+if(count==8)return 0;queue[(head+count++)%8]=*(void *const *)value;return 1; }
+int xQueueReceive(void *q,void *value,unsigned delay) { (void)q;(void)delay;
+#if CONFIG_HOMEHUB_LED_REACTIVE
+if(q==&windows) { if(!windows.count)return 0;memcpy(value,windows.data[windows.head],windows.size);windows.head=(windows.head+1)%2;windows.count--;return 1; }
+#endif
+if(!count)return 0;*(void **)value=queue[head];head=(head+1)%8;count--;return 1; }
 void vQueueDelete(void *q) { (void)q; }
 int xTaskCreate(void (*fn)(void *),const char *name,unsigned stack,void *arg,unsigned priority,void *handle) { (void)fn;(void)name;(void)stack;(void)arg;(void)priority;(void)handle;tasks++;return 1; }
 void vTaskDelay(unsigned delay) { now+=delay*1000; }
@@ -47,5 +64,42 @@ int main(void) {
     assert(cJSON_IsFalse(cJSON_GetObjectItem(r,"ok")));cJSON_Delete(r);
     remote_led_poll();assert(done==208&&!seen[208]);
     r=invoke("led.clear",NULL,"210");cJSON_Delete(r);remote_led_poll();assert(done==209&&seen[208]);
+
+#if CONFIG_HOMEHUB_SHOW
+    pattern(209,0,"fade");
+    assert(remote_led_show_claim());assert(!remote_led_show_claim());
+    remote_led_poll();assert(seen[209]&&done==210);
+    remote_led_pattern_t show={.mode=1,.count=2,.speed=100,.brightness=100,.colors={{255,0,0},{0,0,255}}};
+    assert(remote_led_show_phase(&show,now));remote_led_poll();assert(pixels[0][0]==255);
+    r=invoke("led.clear",NULL,"211");assert(cJSON_IsFalse(cJSON_GetObjectItem(r,"ok")));cJSON_Delete(r);
+    remote_led_show_hold();now+=150000;remote_led_poll();assert(pixels[0][0]==255);
+    assert(remote_led_show_phase(&show,now-150000));remote_led_poll();assert(pixels[0][2]==255);
+    assert(remote_led_show_clear());remote_led_poll();assert(pixels[0][2]==0&&pixels[1][0]==0);
+    assert(remote_led_show_phase(&show,now-150000));remote_led_poll();assert(pixels[0][2]==255);
+    remote_led_show_cancel();assert(remote_led_show_clear());now+=150000;remote_led_poll();assert(pixels[0][2]==255);
+    assert(!remote_led_show_phase(&show,now));remote_led_show_release();
+    r=invoke("led.clear",NULL,"212");assert(cJSON_IsTrue(cJSON_GetObjectItem(r,"ok")));cJSON_Delete(r);
+    assert(tasks==1&&pixels[0][2]==0);
+#endif
+#if CONFIG_HOMEHUB_LED_REACTIVE
+    pattern(220,0,"fade");
+    r=invoke("led.reactive","{\"mode\":\"energy\",\"smoothing_ms\":0}","221");assert(cJSON_IsTrue(cJSON_GetObjectItem(r,"_async")));cJSON_Delete(r);
+    int16_t audio[1600];for(int i=0;i<800;i++) audio[2*i]=audio[2*i+1]=(int16_t)(12000*sinf(6.2831853f*120*i/16000));
+    led_reactive_tap(audio,800,16000);remote_led_poll();assert(seen[220]&&pixels[0][0]>100);
+    assert(remote_led_show_claim());remote_led_poll();assert(!seen[221]);
+    assert(remote_led_show_phase(&show,now));remote_led_poll();assert(pixels[0][0]>100);
+    now+=200000;remote_led_poll();assert(pixels[0][0]==0); // audio ends, no frozen brightness
+    led_reactive_tap(audio,800,16000);remote_led_poll();assert(pixels[0][0]>100);
+    r=invoke("led.clear",NULL,"222");assert(cJSON_IsTrue(cJSON_GetObjectItem(r,"ok")));cJSON_Delete(r);remote_led_poll();assert(seen[221]&&pixels[0][0]==0);
+    assert(remote_led_show_phase(&show,now));remote_led_poll();assert(pixels[0][0]==0); // timeline never resumes after takeover
+    remote_led_show_release();
+    r=invoke("led.reactive","{\"mode\":\"spectrum\"}","223");cJSON_Delete(r);remote_led_poll();
+    assert(remote_led_reactive_stop());remote_led_poll();remote_led_poll();assert(seen[223]); // show.stop path
+    r=invoke("led.reactive",NULL,"224");cJSON_Delete(r);
+    r=invoke("led.reactive","{\"mode\":\"off\"}","225");assert(cJSON_IsTrue(cJSON_GetObjectItem(r,"ok")));cJSON_Delete(r);remote_led_poll();assert(seen[224]&&pixels[0][0]==0);
+    r=invoke("led.reactive",NULL,"226");cJSON_Delete(r);pattern(227,0,"chase");remote_led_poll();assert(seen[226]);
+    r=invoke("led.clear",NULL,"228");cJSON_Delete(r);remote_led_poll();assert(seen[227]);
+    assert(tasks==1);
+#endif
     puts("replacement, clear, set, expiry, invalid input and 200 completions passed; one worker task; queue saturation preserved every result");
 }
