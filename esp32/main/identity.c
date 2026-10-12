@@ -46,6 +46,10 @@ void identity_init(void) {
     }
     snprintf(s_node_id, sizeof(s_node_id),
              NODE_ID_PREFIX "-%02x%02x%02x", mac[3], mac[4], mac[5]);
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+    if(CONFIG_HOMEHUB_FRIENDLY_NAME[0]) snprintf(s_ble_name,sizeof(s_ble_name),"%.29s",CONFIG_HOMEHUB_FRIENDLY_NAME);
+    else
+#endif
     snprintf(s_ble_name, sizeof(s_ble_name),
              BLE_NAME_PREFIX "-%02X%02X%02X", mac[3], mac[4], mac[5]);
     snprintf(s_mac, sizeof(s_mac), "%02x:%02x:%02x:%02x:%02x:%02x",

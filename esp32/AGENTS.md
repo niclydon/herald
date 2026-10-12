@@ -38,6 +38,12 @@ avatar/voice/settings UI on boards with a display.
 
 ## Supported boards
 
+Herald: HW678 N16R8 + NS4168 and two common-cathode RGB LEDs. Use
+`tools/board.sh hw678-n16r8-herald build`, with `BOARD_PRIVATE_CONFIG` pointing
+to a private SDK token/TTS overlay. Read `devices/herald.md`,
+`devices/herald-wiring.md`, and `devices/herald-remote-management.md`.
+The deprecated `xiao-s3` helper alias preserves old scripts, not XIAO wiring.
+
 Board overlays live in `devices/`, which has a `README.md` listing each board's
 hardware, features, and where to buy it, and an `AGENTS.md` recipe for adding
 one. Its Vendor sources table lists each vendor's code for its boards: read it
@@ -45,6 +51,7 @@ before adding a feature to one.
 
 | Board | Target | Overlay(s) after `sdkconfig.defaults` | Helper |
 |---|---|---|---|
+| Herald HW678 N16R8 | `esp32s3` | `devices/sdkconfig.n16r8-speaker;devices/sdkconfig.hw678-n16r8-herald` | `tools/board.sh hw678-n16r8-herald` |
 | ESP32-C5 DevKitC-1 (default) | `esp32c5` | none | `tools/board.sh devkit` |
 | ESP32-C6 devkit without PSRAM | `esp32c6` | `devices/sdkconfig.c6-nopsram` | `tools/board.sh c6-nopsram` |
 | Espressif ESP32-S3-DevKitC-1 v1.1 (N8R8) | `esp32s3` | `devices/sdkconfig.espressif-s3-devkitc-1` | `tools/board.sh espressif-s3-devkitc-1` |

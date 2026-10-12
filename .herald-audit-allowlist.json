@@ -1,0 +1,50 @@
+[
+  {
+    "rule": "private-key",
+    "path": "esp32/dev_signing_key.pem",
+    "sha256": "e57311281ea0478a80be57036768ef71481804eab73182b2b70255311a2ded6a",
+    "reason": "Upstream public development signing key, intentionally shared; not a production secret."
+  },
+  {
+    "rule": "generic-api-key",
+    "path": "esp32/main/noise_upgrade.h",
+    "sha256": "bdeefc12dba2332d31bd580cdc5d24cc59c34e9881200aeb54f47abe089fd32a",
+    "reason": "Fixed WebSocket handshake nonce, not an authentication credential."
+  },
+  {
+    "rule": "generic-api-key",
+    "path": "esp32/components/muse/muse_chat_session.cpp",
+    "sha256": "5ce8bc0f83bf29a746e2b11d9986dc38c86ac47cb5d8da8df71d46b0f0a4779b",
+    "reason": "Fixed WebSocket handshake nonce, not an authentication credential."
+  },
+  {
+    "rule": "generic-api-key",
+    "path": "linux/src/musegadget/noise/noise_xx.py",
+    "sha256": "e90e79cf87f8e44b3b6da095e70dbb1c66bd441eeef753cd1c426acecc7d5157",
+    "reason": "Python private_key type annotation, not a key value."
+  },
+  {
+    "rule": "generic-api-key",
+    "path": "esp32/tests/vectors/link_pairing_v5.json",
+    "sha256": "4fac87ed05ad0c9a76c198a92b95bb0c2a478629e2c986aad8231480841fa12c",
+    "reason": "Upstream public synthetic cryptographic test vectors."
+  },
+  {
+    "rule": "generic-api-key",
+    "path": "linux/tests/vectors/link_pairing_v5.json",
+    "sha256": "4fac87ed05ad0c9a76c198a92b95bb0c2a478629e2c986aad8231480841fa12c",
+    "reason": "Upstream public synthetic cryptographic test vectors."
+  },
+  {
+    "rule": "generic-api-key",
+    "path": "esp32/components/muse/muse_chat_session.cpp",
+    "sha256": "e50789f016262d00156a5ced4a385281e6afb23a0b7d08406f6bf018b06e01c6",
+    "reason": "Fixed WebSocket handshake nonce, not an authentication credential."
+  },
+  {
+    "rule": "muse-sdk-token",
+    "path": "esp32/tests/link_pairing_handshake_harness.c",
+    "sha256": "68dab3311d0217b6876a82c1fe03822f8c2b038374b6fe21bf440d30de5e23fa",
+    "reason": "Upstream pairing unit test uses a synthetic all-A SDK token, not an account credential."
+  }
+]

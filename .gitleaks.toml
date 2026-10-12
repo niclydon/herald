@@ -1,0 +1,9 @@
+title = "Herald public-source audit"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "muse-sdk-token"
+description = "Muse SDK token"
+regex = '''\bmgst_[A-Za-z0-9_-]{16,}\b'''
+keywords = ["mgst_"]

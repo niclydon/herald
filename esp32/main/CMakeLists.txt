@@ -39,7 +39,25 @@ set(GADGET_SRCS
     "factory_test.c"
 )
 
+if(CONFIG_HOMEHUB_EXTERNAL_RGB_TEST)
+    list(APPEND GADGET_SRCS "external_rgb_test.c")
+endif()
+
+if(CONFIG_HOMEHUB_REMOTE_LEDS)
+    list(APPEND GADGET_SRCS "remote_led.c")
+endif()
+if(CONFIG_HOMEHUB_REMOTE_MANAGEMENT)
+    list(APPEND GADGET_SRCS "remote_device.c")
+endif()
+
+if(CONFIG_HOMEHUB_LAN_CONTROL)
+    list(APPEND GADGET_SRCS "herald_lan.c")
+endif()
+
 set(GADGET_REQUIRES
+    esp_https_server
+    spi_flash
+    esp_psram
     nvs_flash
     esp_wifi
     esp_event
@@ -68,6 +86,10 @@ set(GADGET_REQUIRES
     esp_driver_i2s
     esp_driver_pcnt
 )
+
+if(CONFIG_HOMEHUB_I2S_SPEAKER)
+    list(APPEND GADGET_SRCS "speaker.c")
+endif()
 
 # E-paper has its own status screen in place of led_status.c, with
 # a per-panel driver behind epd_panel.h.
@@ -115,3 +137,11 @@ idf_component_register(
     PRIV_INCLUDE_DIRS "../avatar"
     REQUIRES ${GADGET_REQUIRES}
 )
+
+if(CONFIG_HOMEHUB_LAN_CONTROL)
+    if(NOT EXISTS "${CONFIG_HOMEHUB_LAN_CERT_FILE}" OR NOT EXISTS "${CONFIG_HOMEHUB_LAN_KEY_FILE}")
+        message(FATAL_ERROR "Herald LAN requires private certificate/key files; run herald-mcp provision")
+    endif()
+    target_add_binary_data(${COMPONENT_LIB} "${CONFIG_HOMEHUB_LAN_CERT_FILE}" TEXT RENAME_TO herald_cert)
+    target_add_binary_data(${COMPONENT_LIB} "${CONFIG_HOMEHUB_LAN_KEY_FILE}" TEXT RENAME_TO herald_key)
+endif()

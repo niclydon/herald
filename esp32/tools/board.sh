@@ -33,6 +33,11 @@
 #   c6-nopsram ESP32-C6 devkit without PSRAM (status LED on GPIO8, no display)
 #   espressif-s3-devkitc-1
 #              ESP32-S3-DevKitC-1 v1.1 N8R8 (status LED, no display)
+#   n16r8-speaker
+#              Bare HW678 N16R8 with NS4168 on GPIO4/5/6
+#   hw678-n16r8-herald
+#              Herald: HW678 N16R8, two RGB LEDs and NS4168 speaker
+#   xiao-s3   Deprecated compatibility alias for hw678-n16r8-herald
 #   waveshare-c6-lcd-147
 #              Waveshare ESP32-C6-LCD-1.47 with a 172x320 status screen
 #   waveshare-s3-epaper-154
@@ -42,7 +47,7 @@
 # matching serial port, if there is exactly one.
 set -euo pipefail
 
-usage() { sed -n '16,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '16,44p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 [ $# -ge 1 ] || usage 2
 case "$1" in -h|--help) usage ;; esac
@@ -88,7 +93,13 @@ case "$BOARD" in
     # The C6's own USB-Serial-JTAG.
     PORTS="/dev/cu.usbmodem* /dev/ttyACM*"
     ;;
-  espressif-s3-devkitc-1)
+  hw678-n16r8-herald|xiao-s3)
+    # xiao-s3 is retained only for existing local build scripts.
+    TARGET=esp32s3
+    DEFAULTS="$DEFAULTS;devices/sdkconfig.n16r8-speaker;devices/sdkconfig.hw678-n16r8-herald"
+    PORTS="/dev/cu.usbmodem* /dev/ttyACM*"
+    ;;
+  espressif-s3-devkitc-1|n16r8-speaker)
     TARGET=esp32s3
     DEFAULTS="$DEFAULTS;devices/sdkconfig.$BOARD"
     # The "ESP32-S3 USB Port", the chip's own USB-Serial-JTAG. The
@@ -124,6 +135,12 @@ if ! command -v idf.py >/dev/null 2>&1; then
     echo "error: idf.py not found; activate ESP-IDF v6 first" >&2; exit 1; }
 fi
 
+if [ -n "${BOARD_PRIVATE_CONFIG:-}" ]; then
+  [ -f "$BOARD_PRIVATE_CONFIG" ] || { echo "error: private overlay missing" >&2; exit 1; }
+  DEFAULTS="$DEFAULTS;$BOARD_PRIVATE_CONFIG"
+fi
+VERSION_ARGS=()
+if [[ "$BOARD" = hw678-n16r8-herald || "$BOARD" = xiao-s3 ]]; then VERSION_ARGS=(-DPROJECT_VER="${BOARD_FIRMWARE_VERSION:-999.0.1}"); fi
 PORT_ARGS=()
 if [ "$ACTION" != build ]; then
   if [ -z "$PORT" ]; then
@@ -145,4 +162,4 @@ exec idf.py -B "$BUILD_DIR" \
   -DIDF_TARGET="$TARGET" \
   -DSDKCONFIG="$BUILD_DIR/sdkconfig" \
   -DSDKCONFIG_DEFAULTS="$DEFAULTS" \
-  ${PORT_ARGS[@]+"${PORT_ARGS[@]}"} "${IDF_ACTIONS[@]}"
+  ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"} ${PORT_ARGS[@]+"${PORT_ARGS[@]}"} "${IDF_ACTIONS[@]}"

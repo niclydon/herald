@@ -1,0 +1,10 @@
+# Herald: HW678 V0.0.0 ESP32-S3 N16R8 (16 MB flash, 8 MB octal PSRAM).
+# Hardware provenance: PCB markings, chip queries and physical color/audio tests.
+# USB: native 303a:1001; tested UART bridge 1a86:55d3. No vendor schematic.
+# Append after sdkconfig.n16r8-speaker. See herald-wiring.md for verified pins.
+CONFIG_HOMEHUB_EXTERNAL_RGB_TEST=y
+CONFIG_HOMEHUB_REMOTE_LEDS=y
+CONFIG_HOMEHUB_REMOTE_MANAGEMENT=y
+CONFIG_HOMEHUB_FRIENDLY_NAME="Herald"
+CONFIG_HOMEHUB_SHORT_NAME="Hal"
+CONFIG_GADGET_PRODUCT_NAME="Herald"

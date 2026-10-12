@@ -1,0 +1,6 @@
+# Copy outside the checkout; chmod 600; replace locally. Never commit real values.
+CONFIG_GADGET_SDK_TOKEN="REPLACE_WITH_YOUR_SDK_TOKEN"
+# Leave blank to use LED control, audio.test and audio.play without speech.
+CONFIG_HOMEHUB_SPEAKER_TTS_URL=""
+CONFIG_HOMEHUB_SPEAKER_TTS_TOKEN=""
+# Provision Wi-Fi with the Muse app; do not put network credentials in public files.

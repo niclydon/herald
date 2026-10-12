@@ -17,6 +17,15 @@
 #include "app.h"
 #include "esp_log.h"
 #include "diagnostic_log.h"
+#if CONFIG_HOMEHUB_REMOTE_LEDS
+#include "remote_led.h"
+#endif
+#if CONFIG_HOMEHUB_EXTERNAL_RGB_TEST
+void external_rgb_test_start(void);
+#endif
+#if CONFIG_HOMEHUB_I2S_SPEAKER
+#include "speaker.h"
+#endif
 #if CONFIG_MUSE_ENABLED
 #include "muse_glue.h"
 #endif
@@ -29,6 +38,15 @@ void app_main(void) {
     }
 #endif
     ESP_LOGI("link.main", CONFIG_GADGET_PRODUCT_NAME " starting");
+#if CONFIG_HOMEHUB_EXTERNAL_RGB_TEST
+    external_rgb_test_start();
+#if CONFIG_HOMEHUB_REMOTE_LEDS
+    remote_led_init();
+#endif
+#endif
+#if CONFIG_HOMEHUB_I2S_SPEAKER
+    speaker_start();
+#endif
 #if CONFIG_MUSE_ENABLED
     muse_glue_start();
 #endif

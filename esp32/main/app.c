@@ -14,8 +14,21 @@
  * limitations under the License.
  */
 
+#include "sdkconfig.h"
+#if CONFIG_HOMEHUB_LAN_CONTROL
+#include "herald_lan.h"
+#endif
 #include "app.h"
+#if CONFIG_HOMEHUB_I2S_SPEAKER
+#include "speaker.h"
+#endif
 #include "stack_monitor.h"
+#if CONFIG_HOMEHUB_REMOTE_LEDS
+#include "remote_led.h"
+#endif
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+#include "remote_device.h"
+#endif
 
 #include <string.h>
 #include <stdlib.h>
@@ -1843,6 +1856,28 @@ static cJSON *bug_report_command(
 static cJSON *on_ws_command(
     const char *command, cJSON *params, const char *request_id,
     noise_ctrl_session_generation_t session_generation) {
+#if CONFIG_HOMEHUB_REMOTE_LEDS
+    if(!strcmp(command,"led.set") || !strcmp(command,"led.pattern") || !strcmp(command,"led.clear"))
+        return remote_led_command(command,params,request_id,session_generation);
+#endif
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+    if(!strcmp(command,"wifi.scan") || !strcmp(command,"wifi.status") || !strcmp(command,"wifi.reconnect") ||
+       !strcmp(command,"device.reboot") || !strcmp(command,"device.info") || !strcmp(command,"device.diagnostics") || !strcmp(command,"settings.get") || !strcmp(command,"settings.set"))
+        return remote_device_command(command,params,request_id,session_generation);
+#endif
+#if CONFIG_HOMEHUB_I2S_SPEAKER
+    if (!strcmp(command, "audio.test") || !strcmp(command, "audio.play") || !strcmp(command, "audio.speak")) {
+        return speaker_command(command, params, request_id, session_generation);
+    }
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+    if (!strcmp(command,"audio.stop")) return speaker_stop_command(params);
+#endif
+#if CONFIG_HOMEHUB_EXTERNAL_RGB_TEST
+    if (!strcmp(command, "demo.show")) {
+        return speaker_command(command, params, request_id, session_generation);
+    }
+#endif
+#endif
     if (strcmp(command, "device.list_vms") == 0) {
         return list_vms_command();
     }
@@ -2489,6 +2524,9 @@ void app_run(void) {
     }
 
     config_store_init();
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+    remote_preferences_init();
+#endif
     wifi_known_init();
 
     identity_init();
@@ -2530,6 +2568,9 @@ void app_run(void) {
 
     noise_ctrl_init(identity_node_id(), identity_ble_name(), on_ws_control_status);
     noise_ctrl_set_command_cb(on_ws_command);
+#if CONFIG_HOMEHUB_LAN_CONTROL
+    herald_lan_start();
+#endif
     noise_ctrl_set_agent_name_cb(led_status_set_title);
     heap_snapshot("after noise_ctrl_init");
 

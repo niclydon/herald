@@ -24,3 +24,21 @@ muse-simulator.ppm
 # Local gadget provisioning and original-device flash backups.
 .sdk-token
 /backups/
+
+# Herald private provisioning and release artifacts (source-only distribution).
+.private/
+sdkconfig.private
+sdkconfig.private.*
+.env
+.env.*
+!.env.example
+/artifacts/
+*.bin
+*.elf
+*.map
+*.log
+
+# Herald MCP local dependencies, build products and credentials.
+node_modules/
+herald-mcp/dist/
+herald-private/

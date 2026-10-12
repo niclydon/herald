@@ -27,8 +27,12 @@ session to Muse. The rest depends on the hardware.
 
 ## Supported devices
 
+[Herald](herald.md) adds two external RGB LEDs, NS4168 speech/playback,
+persistent volume/brightness and remote management to the HW678 N16R8.
+
 | Board | Chip | Display | Flash / PSRAM | Reference | Buy |
 |---|---|---|---|---|---|
+| **Herald HW678 N16R8** | ESP32-S3 | None; two external RGB LEDs | 16 MB / 8 MB | [Wiring](herald-wiring.md) | — |
 | **ESP32-C5 DevKitC-1** | ESP32-C5 | None (RGB status light) | 8 MB / 8 MB | [Espressif docs](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c5/esp32-c5-devkitc-1/index.html) | [DigiKey](https://www.digikey.com/en/products/result?keywords=ESP32-C5-DevKitC-1) |
 | **ESP32-C6 devkit without PSRAM** | ESP32-C6 | None (RGB status light) | 8 MB or more / none | [Espressif docs](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c6/esp32-c6-devkitc-1/user_guide.html) | — |
 | **Espressif ESP32-S3-DevKitC-1 (N8R8)** | ESP32-S3 | None (RGB status light) | 8 MB / 8 MB | [Espressif docs](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.1.html) | — |
@@ -61,6 +65,10 @@ session to Muse. The rest depends on the hardware.
 | **VN ESP32-S3 1.83-inch NV3023** | ESP32-S3 | 1.83" 284×240 LCD (NV3023) | 16 MB / 8 MB | [xiaozhi-esp32_vietnam board](https://github.com/TienHuyIoT/xiaozhi-esp32_vietnam) | — |
 
 ## Features
+
+Herald: two PWM RGB LEDs; NS4168 I2S output; WAV playback; external TTS;
+Wi-Fi, BLE provisioning, Link and OTA. No display, microphone or battery gauge.
+
 
 | | DevKitC-1 | C6 devkit | ideaspark | Waveshare C6 LCD 1.47 | SenseCAP Indicator | reTerminal E1001 | reTerminal E1002 | HA Voice PE | reSpeaker Lite (experimental) | Waveshare S3 1.75C | Waveshare S3 1.75 | AIPI Lite | Waveshare C6 1.8 | Watcher | StickS3 | StickC Plus2 | Cardputer ADV | BOX-3 | StopWatch | CoreS3 | Core2 | FNK0104B | S3 DevKitC-1 | JC3248W535 | Waveshare LCD7 |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:| :-: |
@@ -459,6 +467,7 @@ board's overlays, in order:
 
 | Board | Target | Overlays after `sdkconfig.defaults` | Build |
 |---|---|---|---|
+| Herald HW678 N16R8 | `esp32s3` | `sdkconfig.n16r8-speaker;devices/sdkconfig.hw678-n16r8-herald` | `tools/board.sh hw678-n16r8-herald build` |
 | ESP32-C5 DevKitC-1 | `esp32c5` | none | `idf.py build` |
 | ESP32-C6 devkit without PSRAM | `esp32c6` | [`devices/sdkconfig.c6-nopsram`](sdkconfig.c6-nopsram) | `tools/board.sh c6-nopsram build` |
 | ESP32-S3-DevKitC-1 | `esp32s3` | [`devices/sdkconfig.espressif-s3-devkitc-1`](sdkconfig.espressif-s3-devkitc-1) | `tools/board.sh espressif-s3-devkitc-1 build` |

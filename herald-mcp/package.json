@@ -1,0 +1,15 @@
+{
+  "name": "herald-mcp-server",
+  "version": "0.1.0",
+  "description": "Authenticated local control of Herald ESP32 gadgets through MCP and CLI",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "engines": {"node": ">=22"},
+  "bin": {"herald": "dist/cli.js", "herald-mcp": "dist/server.js"},
+  "exports": {".": "./dist/client.js"},
+  "files": ["dist", "README.md"],
+  "scripts": {"build": "tsc", "test": "npm run build && node --test test/*.test.mjs"},
+  "dependencies": {"@modelcontextprotocol/server": "2.3.0", "@modelcontextprotocol/node": "2.1.0", "zod": "^4.0.0"},
+  "devDependencies": {"typescript": "^5.9.0", "@types/node": "^22.0.0", "@modelcontextprotocol/client": "2.3.0"}
+}

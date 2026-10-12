@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#include "sdkconfig.h"
+#if CONFIG_HOMEHUB_LAN_CONTROL
+#include "herald_lan.h"
+#endif
 #include "noise_control.h"
 #include "stack_monitor.h"
 #include "noise_upgrade.h"
@@ -1279,6 +1283,66 @@ static char *build_register_json(void) {
     add_register_metadata_string(&metadata, params, "network_ssid", wifi_ssid);
 
     cJSON *commands = cJSON_CreateObject();
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+    cJSON_AddStringToObject(params,"short_name",CONFIG_HOMEHUB_SHORT_NAME);
+    add_command(commands,"wifi.scan","Active Wi-Fi scan: ssid, rssi, channel, auth mode. Asynchronous.",nullptr,nullptr);
+    add_command(commands,"wifi.status","Current Wi-Fi ssid, IP, RSSI, successful reconnect count and uptime.",nullptr,nullptr);
+    add_command(commands,"wifi.reconnect","Rejoin stored Wi-Fi. Link may drop; check wifi.status after reconnection. Completion is session-bound.",nullptr,nullptr);
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,"wifi.reconnect"),"timeout_ms",60000);
+    add_command(commands,"device.reboot","Acknowledge then reboot after 500 ms.",nullptr,nullptr);
+    add_command(commands,"device.info","Firmware, IDF, chip, flash, PSRAM, heap, uptime and friendly names.",nullptr,nullptr);
+    add_command(commands,"device.diagnostics","Reset reason, OTA rollback state and filtered recent warnings/errors. Asynchronous.",nullptr,nullptr);
+    add_command(commands,"settings.get","Persistent default volume and brightness, both 0-100.",nullptr,nullptr);
+    cJSON *settings_optional=cJSON_CreateObject();
+    cJSON *setting_volume=cJSON_CreateObject(), *setting_brightness=cJSON_CreateObject();
+    cJSON_AddStringToObject(setting_volume,"type","integer"); cJSON_AddStringToObject(setting_volume,"description","Default audio volume 0-100.");
+    cJSON_AddStringToObject(setting_brightness,"type","integer"); cJSON_AddStringToObject(setting_brightness,"description","Master LED brightness 0-100.");
+    cJSON_AddItemToObject(settings_optional,"volume",setting_volume); cJSON_AddItemToObject(settings_optional,"brightness",setting_brightness);
+    add_command(commands,"settings.set","Persist volume and/or master LED brightness. Supply at least one. Asynchronous NVS write.",nullptr,settings_optional);
+#endif
+#if CONFIG_HOMEHUB_REMOTE_LEDS
+    auto number_param=[](const char *description) { cJSON *p=cJSON_CreateObject(); cJSON_AddStringToObject(p,"type","integer"); cJSON_AddStringToObject(p,"description",description); return p; };
+    cJSON *led_required=cJSON_CreateObject(), *led_optional=cJSON_CreateObject();
+    cJSON_AddItemToObject(led_required,"index",number_param("LED index 0 or 1."));
+    const char *channels[]={"r","g","b"};
+    for(const char *channel:channels) cJSON_AddItemToObject(led_required,channel,number_param("Color intensity 0-255."));
+    cJSON_AddItemToObject(led_optional,"brightness",number_param("Brightness 0-100, default 100; scaled by saved master brightness."));
+    add_command(commands,"led.set","Set one LED immediately and supersede any pattern.",led_required,cJSON_Duplicate(led_optional,true));
+    cJSON *pattern_required=cJSON_CreateObject();
+    cJSON_AddItemToObject(pattern_required,"pattern",string_param("chase, alternate, fade or sparkle."));
+    cJSON *colors=cJSON_CreateObject(); cJSON_AddStringToObject(colors,"type","array"); cJSON_AddStringToObject(colors,"description","1-16 colors, each [r,g,b] with integer channels 0-255.");
+    cJSON_AddItemToObject(pattern_required,"colors",colors);
+    cJSON_AddItemToObject(led_optional,"speed_ms",number_param("20-60000 ms, default 300."));
+    cJSON_AddItemToObject(led_optional,"duration_ms",number_param("0 runs until stopped; otherwise 1-86400000 ms."));
+    add_command(commands,"led.pattern","Run a pattern asynchronously. Complete once on expiry or supersession by another LED command.",pattern_required,led_optional);
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,"led.pattern"),"timeout_ms",86460000);
+    add_command(commands,"led.clear","Stop any pattern and switch both LEDs off.",nullptr,nullptr);
+#endif
+#if CONFIG_HOMEHUB_I2S_SPEAKER
+    cJSON *audio_optional = cJSON_CreateObject();
+    cJSON *volume = cJSON_CreateObject();
+    cJSON_AddStringToObject(volume, "type", "integer");
+    cJSON_AddStringToObject(volume, "description", "Volume 0-100, default 75. Lower it if speech distorts.");
+    cJSON_AddItemToObject(audio_optional, "volume", volume);
+    cJSON *speech_required = cJSON_CreateObject();
+    cJSON_AddItemToObject(speech_required, "text", string_param("Plain text to speak, 1-1000 UTF-8 bytes. Split longer replies into ordered chunks."));
+    add_command(commands, "audio.speak", "Speak your reply through the user's physical Muse speaker. When the user requests spoken replies, call this with the reply text. Wait for playback before speaking another chunk. Speech is synthesized by the configured TTS service; no WAV preparation is needed.", speech_required, cJSON_Duplicate(audio_optional, true));
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(commands, "audio.speak"), "timeout_ms", 360000);
+    add_command(commands, "audio.test", "Play a short speaker test tone", nullptr, cJSON_Duplicate(audio_optional, true));
+    cJSON *audio_required = cJSON_CreateObject();
+    cJSON_AddItemToObject(audio_required, "url", string_param("Reachable HTTP(S) PCM16 WAV URL, 8-48 kHz, mono/stereo, at most 2 MB. Render speech to WAV before calling; text alone is not audio."));
+    add_command(commands, "audio.play", "Play a WAV sound or rendered speech through the attached NS4168 speaker; returns when playback completes", audio_required, audio_optional);
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(commands, "audio.play"), "timeout_ms", 180000);
+#if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
+    add_command(commands,"audio.stop","Stop current audio playback; no parameters. Pending synthesis will not play.",nullptr,nullptr);
+#endif
+#if CONFIG_HOMEHUB_EXTERNAL_RGB_TEST
+    cJSON *demo_optional = cJSON_Duplicate(audio_optional, true);
+    cJSON_ReplaceItemInObject(cJSON_GetObjectItem(demo_optional, "volume"), "description", cJSON_CreateString("Show volume 0-100, default 100 for recording. Normal speech defaults to 75."));
+    add_command(commands, "demo.show", "Run the narrated two-LED and speaker showcase. Prepares six speech clips, then gives a 20-second recording countdown. Plays original synthesized music, color blends, and audio-reactive lights while explaining the build. Returns after the entire show; speaker stays busy meanwhile. Repeat on request.", nullptr, demo_optional);
+    cJSON_AddNumberToObject(cJSON_GetObjectItem(commands, "demo.show"), "timeout_ms", 1800000);
+#endif
+#endif
     add_command(commands, "device.health",
                 "Report basic Link health, including battery level (percent), "
                 "voltage, and whether it is charging or on USB power; each is "
@@ -1461,6 +1525,9 @@ struct ota_ctx {
 // Queued result from OTA or other async operations.
 static void queue_result(noise_ctrl_session_generation_t session_generation,
                          const char *request_id, cJSON *result) {
+#if CONFIG_HOMEHUB_LAN_CONTROL
+    if (session_generation == HERALD_LAN_GENERATION) { herald_lan_result(request_id,result); return; }
+#endif
     if (!session_generation || !s_result_q || !request_id) {
         cJSON_Delete(result);
         return;
@@ -1688,6 +1755,12 @@ static void handle_invoke_request(
     }
     cJSON_Delete(root);
 }
+
+#if CONFIG_HOMEHUB_LAN_CONTROL
+extern "C" void noise_ctrl_lan_invoke(const char *json) {
+    handle_invoke_request(json, strlen(json), HERALD_LAN_GENERATION);
+}
+#endif
 
 // ---- result → JSON envelope -------------------------------------------------
 

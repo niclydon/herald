@@ -1,0 +1,8 @@
+# Deprecated direct-overlay compatibility copy; not a Seeed XIAO profile.
+# New builds use sdkconfig.hw678-n16r8-herald. Keep settings identical.
+CONFIG_HOMEHUB_EXTERNAL_RGB_TEST=y
+CONFIG_HOMEHUB_REMOTE_LEDS=y
+CONFIG_HOMEHUB_REMOTE_MANAGEMENT=y
+CONFIG_HOMEHUB_FRIENDLY_NAME="Herald"
+CONFIG_HOMEHUB_SHORT_NAME="Hal"
+CONFIG_GADGET_PRODUCT_NAME="Herald"

@@ -148,6 +148,12 @@ static bool drop_rssi_floor(uint8_t reason) {
 }
 #endif
 
+static atomic_uint s_successful_joins;
+static atomic_bool s_had_ip;
+uint32_t wifi_mgr_reconnect_count(void) {
+    unsigned count=atomic_load(&s_successful_joins);
+    return count?count-1:0;
+}
 static void event_handler(void *arg, esp_event_base_t base,
                           int32_t id, void *data) {
     if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
@@ -159,6 +165,7 @@ static void event_handler(void *arg, esp_event_base_t base,
                  ev ? ev->reason : 0, ev ? ev->rssi : 0);
 
         xEventGroupClearBits(s_events, BIT_CONNECTED | BIT_GOT_IP);
+        atomic_store(&s_had_ip,false);
         atomic_store(&s_sta_idle, true);
         const wifi_event_sta_disconnected_t *event =
             (const wifi_event_sta_disconnected_t *)data;
@@ -185,6 +192,7 @@ static void event_handler(void *arg, esp_event_base_t base,
             schedule_reconnect();
         }
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        if(!atomic_exchange(&s_had_ip,true)) atomic_fetch_add(&s_successful_joins,1);
         ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
         ESP_LOGI(TAG, "got IP " IPSTR, IP2STR(&ev->ip_info.ip));
         s_retry = 0;
@@ -522,6 +530,7 @@ int wifi_mgr_scan(wifi_scan_entry_t *out, int max_entries, uint8_t channel,
         out[n].ssid[sizeof(out[n].ssid) - 1] = '\0';
         out[n].rssi = recs[i].rssi;
         out[n].auth_mode = (uint8_t)recs[i].authmode;
+        out[n].channel = recs[i].primary;
         // Cache the strongest BSSID for this SSID (first seen = strongest,
         // since recs is RSSI-sorted). Retain entries missed by a BLE
         // coexistence refresh so Connect can still use the boot-scan target.

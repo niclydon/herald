@@ -156,6 +156,9 @@ attack. Set it up on a network you trust.
 
 ## Boards
 
+[Build Herald](devices/herald.md): two external RGB LEDs, an I2S speaker,
+network speech, persistent settings and remote management on an HW678 N16R8.
+
 Boards marked UI run the full on-screen UI: an animated avatar, push-to-talk and
 settings. Audio and image support vary by board, so check the feature table in
 [`devices/`](devices). The others show status on a light, a ring or a simple
@@ -163,6 +166,7 @@ status screen.
 
 | Board | What you get | Build it |
 |---|---|---|
+| Herald HW678 N16R8 | Two RGB LEDs, I2S speaker, remote management | `tools/board.sh hw678-n16r8-herald build` |
 | ESP32-C5 DevKitC-1 | Status light and button | `idf.py build` |
 | ESP32-C6 devkit without PSRAM | Status light and button | `tools/board.sh c6-nopsram build` |
 | Espressif ESP32-S3-DevKitC-1 | Status light and button | `tools/board.sh espressif-s3-devkitc-1 build` |

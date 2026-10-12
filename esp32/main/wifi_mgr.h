@@ -26,9 +26,11 @@ typedef struct {
     char ssid[33];
     int8_t rssi;
     uint8_t auth_mode;
+    uint8_t channel;
 } wifi_scan_entry_t;
 
 void wifi_mgr_init(void);
+uint32_t wifi_mgr_reconnect_count(void);
 
 // Returns the STA esp_netif handle (NULL before wifi_mgr_init()). The pointer
 // is stable for the lifetime of the process.

@@ -1,0 +1,13 @@
+<!-- Manual read-only tool-discovery evaluation. Use tools/list only; do not execute effects. Not an executed agent benchmark. -->
+<evaluation>
+  <qa_pair><question>Which tool starts a two-LED animation and returns a job ID immediately? Return only the tool name.</question><answer>herald_led_pattern</answer></qa_pair>
+  <qa_pair><question>Which tool inspects completion of an asynchronous command? Return only the tool name.</question><answer>herald_job</answer></qa_pair>
+  <qa_pair><question>Which tool stops both speaker playback and LED patterns, then releases ownership? Return only the tool name.</question><answer>herald_cancel</answer></qa_pair>
+  <qa_pair><question>Which tool relinquishes ownership without stopping effects? Return only the tool name.</question><answer>herald_release</answer></qa_pair>
+  <qa_pair><question>Which tool reads the live LAN administrative policy? Return only the tool name.</question><answer>herald_describe</answer></qa_pair>
+  <qa_pair><question>Which tool persists speaking volume and LED brightness defaults? Return only the tool name.</question><answer>herald_settings_set</answer></qa_pair>
+  <qa_pair><question>Which tool reads reset reason and filtered warning/error logs? Return only the tool name.</question><answer>herald_device_diagnostics</answer></qa_pair>
+  <qa_pair><question>Which tool provides working, success and failure light notifications with optional speech? Return only the tool name.</question><answer>herald_task_status</answer></qa_pair>
+  <qa_pair><question>Which tool reads saved volume and brightness without changing them? Return only the tool name.</question><answer>herald_settings_get</answer></qa_pair>
+  <qa_pair><question>Which tool sends text to the configured speech service? Return only the tool name.</question><answer>herald_audio_speak</answer></qa_pair>
+</evaluation>
