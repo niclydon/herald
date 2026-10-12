@@ -92,3 +92,7 @@ To reproduce it, follow [Build Herald](../esp32/devices/herald.md), then the
 [MCP and CLI guide](../herald-mcp/README.md). Supply your own Muse credentials
 and speech service. No hosted service, preconfigured credentials or personalized
 firmware image is included in this fork.
+
+For the detailed investigation and evidence boundaries, see the
+[narrative record](migrations/2026-10-herald-usb-to-speech.md) and
+[current-state guide](herald-current-state.md).
