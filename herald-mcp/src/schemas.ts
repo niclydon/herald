@@ -32,14 +32,15 @@ export const commands={
  'led.clear':empty,'audio.stop':empty,'audio.test':z.object(volume).strict(),
  'audio.play':z.object({url:z.url().refine(s=>/^https?:\/\//.test(s)),...volume}).strict(),
  'audio.speak':z.object({text:z.string().min(1).refine(s=>Buffer.byteLength(s,'utf8')<=1000,'Maximum 1,000 UTF-8 bytes'),...volume}).strict(),
- 'demo.show':z.object(volume).strict(), 'wifi.scan':empty,'wifi.status':empty,'wifi.reconnect':empty,
+ 'demo.show':z.object(volume).strict(),
+ 'mic.level':z.object({duration_ms:z.number().int().min(100).max(3000).optional()}).strict(), 'wifi.scan':empty,'wifi.status':empty,'wifi.reconnect':empty,
  'device.info':empty,'device.health':empty,'device.diagnostics':empty,'device.discover':empty,'device.reboot':empty,
  'device.ota':z.object({url:z.url().refine(s=>s.startsWith('https://'),'OTA requires HTTPS'),force:z.boolean().optional()}).strict(),
  'settings.get':empty,'settings.set':z.object({volume:percent.optional(),brightness:percent.optional()}).strict().refine(s=>s.volume!==undefined||s.brightness!==undefined,'Supply volume or brightness'),
 } as const;
 export type Command=keyof typeof commands;
 export const admin=new Set(['device.ota','device.reboot','wifi.reconnect']);
-export const reads=new Set(['device.info','device.health','device.diagnostics','device.discover','wifi.status','wifi.scan','settings.get']);
+export const reads=new Set(['device.info','device.health','device.diagnostics','device.discover','wifi.status','wifi.scan','settings.get','mic.level']);
 export const descriptions:Record<Command,string>={
  'show.play':'Play HTTPS WAV and choreographed LED phases concurrently. Preloads audio before starting the shared clock. Latest active phase wins; gaps hold the last color. Volume defaults to 75. Returns a job; loop repeats until show.stop or audio.stop. Owns both engines.',
  'show.stop':'Stop the current show audio and freeze LEDs. Errors if no show is running. Poll the original job for cleanup completion.',
@@ -57,6 +58,7 @@ export const descriptions:Record<Command,string>={
  'audio.test':'Play a short test tone. Start with volume 10 for wiring checks.',
  'audio.play':'Play a reachable PCM16 WAV (8-48kHz, mono/stereo, <=2MiB). Returns a job ID.',
  'audio.speak':'Speak text through the configured TTS service. Maximum 1,000 UTF-8 bytes; saved volume applies unless overridden. Returns a job ID.',
+ 'mic.level':'Measure sound level with the ZTS6631 microphone: short capture returning rms, peak and dbfs. Level metering only; audio is discarded. Returns a job.',
  'demo.show':'Run a narrated two-LED and speaker showcase after TTS preparation and a 20-second countdown. Returns a job ID.',
  'wifi.scan':'Actively scan visible Wi-Fi networks. Runs asynchronously.', 'wifi.status':'Read network, signal strength, reconnect count and uptime.',
  'wifi.reconnect':'ADMIN: disconnect and rejoin the stored network. Polling may disconnect; verify wifi.status afterward.',
