@@ -938,11 +938,17 @@ static void led_wait(int ms) {
 }
 
 #if CONFIG_HOMEHUB_VOICE
+// How long the volume stays up after the dial stops. The voice setters
+// below track this state on every voice board; the ring renderer that
+// draws it only exists on the ring backends.
+#define VOICE_VOLUME_MS 1500
+#endif
+
+#if CONFIG_HOMEHUB_VOICE && \
+    (CONFIG_HOMEHUB_LED_BACKEND_VOICE_RING || CONFIG_HOMEHUB_LED_BACKEND_RESPEAKER_LITE)
 #define VOICE_FRAME_MS 40
 // Three 200 ms flashes.
 #define VOICE_ERROR_FRAMES 30
-// How long the volume stays up after the dial stops.
-#define VOICE_VOLUME_MS 1500
 
 static rgb_t scaled(rgb_t c, float level) {
     return (rgb_t){c.r * level, c.g * level, c.b * level};
@@ -1036,6 +1042,14 @@ static bool voice_render(void) {
     vTaskDelay(pdMS_TO_TICKS(VOICE_FRAME_MS));
     return true;
 }
+#endif
+
+#if CONFIG_HOMEHUB_VOICE && \
+    !(CONFIG_HOMEHUB_LED_BACKEND_VOICE_RING || CONFIG_HOMEHUB_LED_BACKEND_RESPEAKER_LITE)
+// No addressable ring on this board (Herald's LEDs belong to the remote
+// and reactive paths): voice state is tracked by the setters but there is
+// nothing to draw it on, so the status task keeps the connection state.
+static bool voice_render(void) { return false; }
 #endif
 
 static void led_task(void *arg) {

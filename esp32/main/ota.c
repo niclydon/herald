@@ -40,6 +40,7 @@ bool ota_is_enabled(void) {
 #include "esp_https_ota.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -273,7 +274,10 @@ void ota_start(const char *url, bool force, ota_status_cb cb, void *user) {
         return;
     }
     // 8 KB stack: TLS handshake + flash writes during the OTA download.
-    if (xTaskCreate(ota_task, "ota", 16384, ctx, 5, NULL) != pdPASS) {
+    ESP_LOGW(TAG, "ota_start heap: free_internal=%u largest_internal=%u",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    if (xTaskCreate(ota_task, "ota", 8192, ctx, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "could not start OTA task");
         free(ctx->url);
         free(ctx);

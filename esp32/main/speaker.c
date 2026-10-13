@@ -83,6 +83,30 @@ static void finish_audio(void) {
     vTaskDelay(pdMS_TO_TICKS(50));
     i2s_channel_disable(tx);
 }
+/* Voice reply playback (voice_board_herald.c). Claims the same lock the
+ * speaker commands use, so a reply and a command can never interleave on
+ * the channel or fight over its clock: begin fails while a command owns
+ * it, and commands report the speaker busy while a reply owns it. The
+ * channel runs at 48 kHz for the whole claim, voice_player's rate. */
+static bool voice_active;
+esp_err_t speaker_voice_begin(void) {
+    if(!tx||!lock) return ESP_ERR_INVALID_STATE;
+    if(xSemaphoreTake(lock,0)!=pdTRUE) return ESP_ERR_TIMEOUT;
+    atomic_store(&stop_requested,false);
+    if(rate(48000)!=ESP_OK) { xSemaphoreGive(lock); return ESP_FAIL; }
+    voice_active=true;
+    return ESP_OK;
+}
+bool speaker_voice_write(const int16_t *pcm, size_t bytes) {
+    if(!voice_active) return false;
+    return write_samples(pcm,bytes);
+}
+void speaker_voice_end(void) {
+    if(!voice_active) return;
+    voice_active=false;
+    finish_audio();
+    xSemaphoreGive(lock);
+}
 static bool tone(int volume) {
     if (rate(16000)!=ESP_OK) return false;
     int16_t pcm[512]; bool ok=true;

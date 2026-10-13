@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Optional authenticated HTTPS transport. Commands use the existing Link dispatcher.
 #include "herald_lan.h"
+#include "admin_page.h"
 #include "cJSON.h"
+#if __has_include("esp_app_desc.h")
+#include "esp_app_desc.h"
+#define HERALD_LAN_HAS_APP_DESC 1
+#endif
 #include "esp_https_server.h"
 #include "esp_timer.h"
 #include "esp_log.h"
@@ -44,9 +49,12 @@ static const char *commands[]={
 #if CONFIG_HOMEHUB_BLE_CENTRAL
 "ble.scan","ble.connect","ble.discover","ble.read","ble.write","ble.disconnect",
 #endif
+#if CONFIG_HOMEHUB_MIC
+"mic.level",
+#endif
 "led.set","led.pattern","led.clear","audio.test","audio.play","audio.speak","audio.stop","demo.show","wifi.scan","wifi.status","wifi.reconnect","device.info","device.health","device.diagnostics","device.discover","device.reboot","device.ota","settings.get","settings.set"};
 static bool admin_command(const char *s) { return !strcmp(s,"device.ota")||!strcmp(s,"device.reboot")||!strcmp(s,"wifi.reconnect"); }
-static bool readonly_command(const char *s) { return !strcmp(s,"device.info")||!strcmp(s,"device.health")||!strcmp(s,"device.diagnostics")||!strcmp(s,"wifi.status")||!strcmp(s,"settings.get")||!strcmp(s,"wifi.scan")||!strcmp(s,"device.discover"); }
+static bool readonly_command(const char *s) { return !strcmp(s,"mic.level")||!strcmp(s,"device.info")||!strcmp(s,"device.health")||!strcmp(s,"device.diagnostics")||!strcmp(s,"wifi.status")||!strcmp(s,"settings.get")||!strcmp(s,"wifi.scan")||!strcmp(s,"device.discover"); }
 static bool identifier(const char *s) {
     if(!s || !*s || strlen(s)>64) return false;
     for(;*s;s++) if(!((*s>='a'&&*s<='z')||(*s>='A'&&*s<='Z')||(*s>='0'&&*s<='9')||*s=='-'||*s=='_')) return false;
@@ -89,6 +97,9 @@ static esp_err_t get(httpd_req_t *r) {
     if(!strcmp(r->uri,"/v1/describe")) {
         cJSON *out=cJSON_CreateObject(), *list=cJSON_AddArrayToObject(out,"commands");
         cJSON_AddStringToObject(out,"name",CONFIG_HOMEHUB_FRIENDLY_NAME);
+#ifdef HERALD_LAN_HAS_APP_DESC
+        cJSON_AddStringToObject(out,"version",esp_app_get_description()->version);
+#endif
         cJSON_AddNumberToObject(out,"protocol",1);
         for(size_t i=0;i<sizeof(commands)/sizeof(*commands);i++)
             if(CONFIG_HOMEHUB_LAN_ADMIN || !admin_command(commands[i])) cJSON_AddItemToArray(list,cJSON_CreateString(commands[i]));
@@ -163,6 +174,14 @@ static esp_err_t post(httpd_req_t *r) {
     xSemaphoreTake(lock,portMAX_DELAY); cJSON *out=job_response(slot); xSemaphoreGive(lock);
     return reply(r,"202 Accepted",out);
 }
+/* The admin page itself carries no secrets and needs no auth: it asks for the
+ * LAN token in the browser and sends it as the Bearer header on API calls,
+ * which stay behind authenticated() as before. */
+static esp_err_t page(httpd_req_t *r) {
+    httpd_resp_set_status(r,"200 OK"); httpd_resp_set_type(r,"text/html");
+    httpd_resp_set_hdr(r,"Cache-Control","no-store");
+    return httpd_resp_send(r,HERALD_ADMIN_PAGE,HTTPD_RESP_USE_STRLEN);
+}
 void herald_lan_start(void) {
     if(server || strlen(CONFIG_HOMEHUB_LAN_TOKEN)<32) { ESP_LOGW("link.lan","LAN disabled: configure a token of at least 32 characters"); return; }
     lock=xSemaphoreCreateMutex(); if(!lock) return;
@@ -177,7 +196,10 @@ void herald_lan_start(void) {
     httpd_uri_t status={.uri="/v1/jobs/*",.method=HTTP_GET,.handler=get};
     httpd_uri_t command={.uri="/v1/commands",.method=HTTP_POST,.handler=post};
     httpd_uri_t release={.uri="/v1/release",.method=HTTP_POST,.handler=post};
+    httpd_uri_t root={.uri="/",.method=HTTP_GET,.handler=page};
+    httpd_uri_t admin={.uri="/admin",.method=HTTP_GET,.handler=page};
     httpd_register_uri_handler(server,&describe); httpd_register_uri_handler(server,&status);
     httpd_register_uri_handler(server,&command); httpd_register_uri_handler(server,&release);
+    httpd_register_uri_handler(server,&root); httpd_register_uri_handler(server,&admin);
     ESP_LOGI("link.lan","Herald authenticated HTTPS ready on port 8443");
 }

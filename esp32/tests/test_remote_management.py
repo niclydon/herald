@@ -26,6 +26,8 @@ class RemoteManagement(unittest.TestCase):
 #define CONFIG_HOMEHUB_REMOTE_MANAGEMENT 1
 #define CONFIG_HOMEHUB_REMOTE_LEDS 1
 #define CONFIG_HOMEHUB_I2S_SPEAKER 1
+#define CONFIG_HOMEHUB_MIC 1
+#define CONFIG_HOMEHUB_VOICE 1
 #define CONFIG_HOMEHUB_EXTERNAL_RGB_TEST 1
 #define CONFIG_HOMEHUB_TUNNEL 1
 #define CONFIG_HOMEHUB_SHORT_NAME "Hal"
@@ -46,11 +48,11 @@ static bool ota_is_enabled() { return true; }
             self.assertLess(len(raw.encode()),8192)
             data=json.loads(raw); commands=data['params']['commands_v2']
             self.assertEqual(data['params']['display_name'],'d'*63)
-            for command in ('show.play','show.stop','ble.scan','ble.connect','ble.discover','ble.read','ble.write','ble.disconnect','led.reactive','led.set','led.pattern','led.clear','audio.stop','wifi.scan','wifi.status','wifi.reconnect','device.reboot','device.info','device.diagnostics','settings.get','settings.set','demo.show','audio.test','audio.play','audio.speak','device.health','device.ota','device.discover'):
+            for command in ('show.play','show.stop','ble.scan','ble.connect','ble.discover','ble.read','ble.write','ble.disconnect','led.reactive','led.set','led.pattern','led.clear','audio.stop','wifi.scan','wifi.status','wifi.reconnect','device.reboot','device.info','device.diagnostics','settings.get','settings.set','demo.show','audio.test','audio.play','audio.speak','mic.level','voice.configure','device.health','device.ota','device.discover'):
                 self.assertIn(command,commands)
             print(f'Herald full registration: {len(raw.encode())} bytes')
     def test_new_advertisements_match_dispatch_gates(self):
-        expected={**dict.fromkeys(('led.set','led.pattern','led.clear'),'CONFIG_HOMEHUB_REMOTE_LEDS'),**dict.fromkeys(('wifi.scan','wifi.status','wifi.reconnect','device.reboot','device.info','device.diagnostics','settings.get','settings.set','audio.stop'),'CONFIG_HOMEHUB_REMOTE_MANAGEMENT')}
+        expected={**dict.fromkeys(('led.set','led.pattern','led.clear'),'CONFIG_HOMEHUB_REMOTE_LEDS'),**dict.fromkeys(('mic.level',),'CONFIG_HOMEHUB_MIC'),**dict.fromkeys(('wifi.scan','wifi.status','wifi.reconnect','device.reboot','device.info','device.diagnostics','settings.get','settings.set','audio.stop'),'CONFIG_HOMEHUB_REMOTE_MANAGEMENT')}
         for filename in ('app.c','noise_control.cpp'):
             guards=[]; found=set()
             for line in (ROOT/'main'/filename).read_text().splitlines():

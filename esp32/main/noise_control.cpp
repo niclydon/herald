@@ -1305,7 +1305,7 @@ static char *build_register_json(void) {
     add_command(commands,"ble.read","Read up to 512 bytes as value_hex.",cJSON_Duplicate(bh,true),nullptr);
     cJSON_AddItemToObject(bh,"value_hex",string_param("Even-length hex, up to 512 bytes."));
     cJSON *bw=cJSON_CreateObject(),*br=cJSON_CreateObject();cJSON_AddStringToObject(br,"type","boolean");cJSON_AddStringToObject(br,"description","Default false; true waits for each ATT response.");cJSON_AddItemToObject(bw,"with_response",br);
-    add_command(commands,"ble.write","Sequential MTU-3 writes; peripheral must support chunk reassembly. Errors identify the chunk.",bh,bw);
+    add_command(commands,"ble.write","Sequential MTU-3 writes with chunk reassembly; errors identify the chunk.",bh,bw);
     const char *ble_names[]={"ble.scan","ble.connect","ble.discover","ble.read","ble.write","ble.disconnect"};
     for(const char *name:ble_names)cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,name),"timeout_ms",600000);
 #endif
@@ -1313,7 +1313,7 @@ static char *build_register_json(void) {
     cJSON_AddStringToObject(params,"short_name",CONFIG_HOMEHUB_SHORT_NAME);
     add_command(commands,"wifi.scan","Active Wi-Fi scan: ssid, rssi, channel, auth mode. Asynchronous.",nullptr,nullptr);
     add_command(commands,"wifi.status","Current Wi-Fi ssid, IP, RSSI, successful reconnect count and uptime.",nullptr,nullptr);
-    add_command(commands,"wifi.reconnect","Rejoin stored Wi-Fi. Link may drop; check wifi.status after reconnection. Completion is session-bound.",nullptr,nullptr);
+    add_command(commands,"wifi.reconnect","Rejoin stored Wi-Fi; link may drop. Check wifi.status after. Completion is session-bound.",nullptr,nullptr);
     cJSON_AddNumberToObject(cJSON_GetObjectItem(commands,"wifi.reconnect"),"timeout_ms",60000);
     add_command(commands,"device.reboot","Acknowledge then reboot after 500 ms.",nullptr,nullptr);
     add_command(commands,"device.info","Firmware, IDF, chip, flash, PSRAM, heap, uptime and friendly names.",nullptr,nullptr);
@@ -1365,12 +1365,12 @@ static char *build_register_json(void) {
     cJSON_AddItemToObject(audio_optional, "volume", volume);
     cJSON *speech_required = cJSON_CreateObject();
     cJSON_AddItemToObject(speech_required, "text", string_param("Plain text to speak, 1-1000 UTF-8 bytes. Split longer replies into ordered chunks."));
-    add_command(commands, "audio.speak", "Speak your reply through the user's physical Muse speaker. When the user requests spoken replies, call this with the reply text. Wait for playback before speaking another chunk. Speech is synthesized by the configured TTS service; no WAV preparation is needed.", speech_required, cJSON_Duplicate(audio_optional, true));
+    add_command(commands, "audio.speak", "Speak text through the user's physical Muse speaker via the configured TTS service. Wait for playback before speaking another chunk.", speech_required, cJSON_Duplicate(audio_optional, true));
     cJSON_AddNumberToObject(cJSON_GetObjectItem(commands, "audio.speak"), "timeout_ms", 360000);
     add_command(commands, "audio.test", "Play a short speaker test tone", nullptr, cJSON_Duplicate(audio_optional, true));
     cJSON *audio_required = cJSON_CreateObject();
     cJSON_AddItemToObject(audio_required, "url", string_param("Reachable HTTP(S) PCM16 WAV URL, 8-48 kHz, mono/stereo, at most 2 MB. Render speech to WAV before calling; text alone is not audio."));
-    add_command(commands, "audio.play", "Play a WAV sound or rendered speech through the attached NS4168 speaker; returns when playback completes", audio_required, audio_optional);
+    add_command(commands, "audio.play", "Play a WAV through the NS4168 speaker; returns when playback completes", audio_required, audio_optional);
     cJSON_AddNumberToObject(cJSON_GetObjectItem(commands, "audio.play"), "timeout_ms", 180000);
 #if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
     add_command(commands,"audio.stop","Stop current audio playback; no parameters. Pending synthesis will not play.",nullptr,nullptr);
@@ -1378,14 +1378,22 @@ static char *build_register_json(void) {
 #if CONFIG_HOMEHUB_EXTERNAL_RGB_TEST
     cJSON *demo_optional = cJSON_Duplicate(audio_optional, true);
     cJSON_ReplaceItemInObject(cJSON_GetObjectItem(demo_optional, "volume"), "description", cJSON_CreateString("Show volume 0-100, default 100 for recording. Normal speech defaults to 75."));
-    add_command(commands, "demo.show", "Run the narrated two-LED and speaker showcase. Prepares six speech clips, then gives a 20-second recording countdown. Plays original synthesized music, color blends, and audio-reactive lights while explaining the build. Returns after the entire show; speaker stays busy meanwhile. Repeat on request.", nullptr, demo_optional);
+    add_command(commands, "demo.show", "Narrated two-LED and speaker showcase: six speech clips, countdown, music, audio-reactive lights. Speaker stays busy during the show.", nullptr, demo_optional);
     cJSON_AddNumberToObject(cJSON_GetObjectItem(commands, "demo.show"), "timeout_ms", 1800000);
 #endif
 #endif
+#if CONFIG_HOMEHUB_MIC
+    cJSON *mic_optional = cJSON_CreateObject();
+    cJSON *mic_duration = cJSON_CreateObject();
+    cJSON_AddStringToObject(mic_duration, "type", "integer");
+    cJSON_AddStringToObject(mic_duration, "description", "100-3000 ms, default 1000.");
+    cJSON_AddItemToObject(mic_optional, "duration_ms", mic_duration);
+    add_command(commands, "mic.level", "Measure sound level with the ZTS6631 mic; returns rms, peak and dbfs. Audio is discarded.", nullptr, mic_optional);
+#endif
     add_command(commands, "device.health",
-                "Report basic Link health, including battery level (percent), "
-                "voltage, and whether it is charging or on USB power; each is "
-                "null when the device has no battery or can't measure it",
+                "Report Link health: battery percent, voltage and charging "
+                "or USB power state; each is null when the device has no "
+                "battery or can't measure it",
                 nullptr, nullptr);
 #if CONFIG_HOMEHUB_TUNNEL
     add_command(commands, "device.discover",
@@ -1484,11 +1492,10 @@ static char *build_register_json(void) {
     cJSON *volume_param = cJSON_CreateObject();
     cJSON_AddStringToObject(volume_param, "type", "integer");
     cJSON_AddStringToObject(volume_param, "description",
-                            "Speaker volume, 0 to 100; kept across restarts.");
+                            "Volume 0-100; kept across restarts.");
     cJSON_AddItemToObject(volume_optional, "volume", volume_param);
     add_command(commands, "voice.configure",
-                "Set the speaker volume. Without volume, "
-                "reports the current one.",
+                "Set or report the speaker volume.",
                 nullptr, volume_optional);
 #endif
 

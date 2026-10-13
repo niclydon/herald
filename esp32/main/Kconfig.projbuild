@@ -16,11 +16,24 @@ menu "ESP32 Device SDK"
 
     config HOMEHUB_I2S_SPEAKER
         bool "Bare N16R8 NS4168 speaker (GPIO4/5/6)"
-        depends on IDF_TARGET_ESP32S3 && SPIRAM && !MUSE_ENABLED && !HOMEHUB_VOICE
+        depends on IDF_TARGET_ESP32S3 && SPIRAM && !MUSE_ENABLED
         default n
         help
             User-wired NS4168 speaker: BCLK=4, LRCLK=5, DATA=6.
             Adds a quiet startup tone, audio.test and PCM16 WAV audio.play.
+
+    config HOMEHUB_MIC
+        bool "ZTS6631 I2S microphone (GPIO14/13/10, I2S_NUM_1 RX)"
+        depends on HOMEHUB_I2S_SPEAKER
+        default n
+        help
+            User-wired emakefun ZTS663 MEMS microphone module (ZTS6631):
+            BCLK=14, LRC=13, DATA=10, powered from the board 5V pin
+            (the module regulates 5V to 3.3V onboard) and hardwired
+            for I2S left channel. Adds the mic.level command, which
+            captures about a second of audio on I2S_NUM_1 and reports
+            RMS, peak and dBFS. Level metering only: the audio is
+            measured and discarded, never stored or streamed.
 
     config HOMEHUB_EXTERNAL_RGB_TEST
         bool "Resistor-protected external RGB LEDs on GPIO15/16/17 and 7/8/9"
@@ -356,7 +369,7 @@ menu "ESP32 Device SDK"
 
     config HOMEHUB_VOICE
         bool "Push-to-talk voice chat"
-        depends on (HOMEHUB_LED_BACKEND_VOICE_RING || HOMEHUB_LED_BACKEND_RESPEAKER_LITE) && SPIRAM
+        depends on (HOMEHUB_LED_BACKEND_VOICE_RING || HOMEHUB_LED_BACKEND_RESPEAKER_LITE || HOMEHUB_LED_BACKEND_NONE) && SPIRAM
         default y
         help
             Hold the centre button (XIAO BOOT on reSpeaker Lite), speak,

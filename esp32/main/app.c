@@ -36,6 +36,9 @@
 #if CONFIG_HOMEHUB_REMOTE_MANAGEMENT
 #include "remote_device.h"
 #endif
+#if CONFIG_HOMEHUB_MIC
+#include "mic.h"
+#endif
 
 #include <string.h>
 #include <stdlib.h>
@@ -1885,6 +1888,10 @@ static cJSON *on_ws_command(
     if(!strcmp(command,"wifi.scan") || !strcmp(command,"wifi.status") || !strcmp(command,"wifi.reconnect") ||
        !strcmp(command,"device.reboot") || !strcmp(command,"device.info") || !strcmp(command,"device.diagnostics") || !strcmp(command,"settings.get") || !strcmp(command,"settings.set"))
         return remote_device_command(command,params,request_id,session_generation);
+#endif
+#if CONFIG_HOMEHUB_MIC
+    if (!strcmp(command,"mic.level"))
+        return mic_command(command,params,request_id,session_generation);
 #endif
 #if CONFIG_HOMEHUB_I2S_SPEAKER
     if (!strcmp(command, "audio.test") || !strcmp(command, "audio.play") || !strcmp(command, "audio.speak")) {
