@@ -10,6 +10,8 @@ other boards sold as “ESP32-S3 N16R8” may have different layouts.
 
 - HW678 ESP32-S3 N16R8 development board and a USB data cable.
 - NS4168 I2S amplifier module with `G`, `V`, `BCL`, `LRC`, `DIN` labels.
+- Optional emakefun ZTS663 I2S MEMS microphone module (ZTS6631 chip) with a
+  5-pin PH2.0 connector: BCLK, LRC, DATA, +5V, GND.
 - Passive speaker compatible with your amplifier module's specified load.
   The original speaker's impedance/power rating was not recorded; check yours.
 - Two common-cathode RGB LEDs. The tested parts were CHANZON 8 mm, whose bag
@@ -36,6 +38,32 @@ amplifier drives both terminals. The tested setup powers the amplifier from
 3V3; do not substitute 5V or an external supply without checking the module.
 Begin with a low-volume `audio.test`. If loud playback resets the board, lower
 the volume and investigate power delivery instead of increasing the gain.
+
+## Microphone (optional)
+
+The microphone is a separate I2S input on the ESP32's second I2S port, so
+it shares no pins with the speaker or the LEDs and needs no branching of
+the speaker's clock wires.
+
+| ZTS663 module pin (PH2.0 J1) | ESP32 board pin |
+|---|---|
+| 1 BCLK | GPIO14 |
+| 2 LRC | GPIO13 |
+| 3 DATA | GPIO10 |
+| 4 +5V | 5V |
+| 5 GND | GND |
+
+Power the module from the board's 5V pin, not 3V3: the module carries its
+own 5V-to-3.3V regulator (ME6211C33) feeding the ZTS6631, whose supply
+range is 1.6-3.6V. There are no VDD or L/R pins to wire: the module's
+SELECT line is pulled low and CONFIG floats, which hardwires it to I2S
+format, left channel. The chip sends 24-bit samples (MSB-aligned in a
+32-bit slot) at -26 dBFS sensitivity with 64 dB SNR.
+
+Firmware support is the `mic.level` command (Kconfig `HOMEHUB_MIC`),
+which captures about a second at 16 kHz and reports RMS, peak and dBFS.
+That is level metering only: the audio is measured and discarded, with
+no recording, streaming or wake word.
 
 ## LEDs
 

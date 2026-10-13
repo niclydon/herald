@@ -122,7 +122,10 @@ not shell commands and not a direct unauthenticated HTTP API on the ESP32.
 `demo.show` with `{"volume":75}` prepares six speech clips, gives a 20-second
 recording countdown, and runs lights, narration and an original synthesized
 melody. Default demo volume is 100; normal saved speech volume starts at 75.
-There is no microphone, voice wake word, display or Bluetooth speaker output.
+An optional ZTS6631 microphone module (see the wiring guide) adds the
+`mic.level` command: short level metering (RMS, peak, dBFS) only. There
+is still no voice input, wake word, recording or streaming, and no
+display or Bluetooth speaker output.
 If Muse claims no RGB hardware, refresh its live device description and have
 it identify the actual command-tool error instead of inferring from old notes.
 
@@ -151,6 +154,27 @@ Changing that trust model is outside this prototype's build recipe.
 The optional [Herald MCP bridge and CLI](../../herald-mcp/README.md) provide
 authenticated HTTPS control independently of Muse. Provision a private LAN
 certificate/token, enable the LAN overlay, and follow the bridge setup guide.
+
+## LAN admin page
+
+When the LAN overlay is enabled, the same authenticated HTTPS server
+(port 8443) also serves a small admin page at `https://<device-ip>:8443/`
+(`/admin` works too). The firmware does not advertise an mDNS name, so use
+the gadget's IP address; the provisioned certificate is named
+`herald.local`, so a browser will warn that the certificate does not match
+the IP (and that its private issuer is untrusted) before showing the page.
+
+The page itself contains no secrets. It asks for the LAN token once and
+keeps it in the browser's local storage, sending it as the Bearer header
+the API requires; every command still goes through the authenticated,
+ownership-leased LAN API. Its controls are microphone-focused:
+
+- **Test Mic** runs one 2-second `mic.level` capture and shows per-slot
+  (left/right) RMS, peak and dBFS plus a signal/no-signal verdict.
+- **Monitor** repeats 1-second captures and draws a live level bar
+  (-70 to 0 dBFS) until toggled off.
+- **Loopback Test** captures 3 seconds on the microphone while playing
+  the speaker test tone at full volume, proving the whole audio path.
 
 ## Development checks
 
