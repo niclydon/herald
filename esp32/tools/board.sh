@@ -30,6 +30,10 @@
 #              Seeed reTerminal E1001 (ESP32-S3) with a 7.5 inch e-paper
 #   reterminal-e1002
 #              Seeed reTerminal E1002 (ESP32-S3) with a 7.3 inch colour e-paper
+#   reterminal-sticky
+#              Seeed reTerminal Sticky (ESP32-S3) with a 3.97 inch e-paper
+#   reterminal-sticky-link
+#              Seeed reTerminal Sticky with a Link-only status screen
 #   c6-nopsram ESP32-C6 devkit without PSRAM (status LED on GPIO8, no display)
 #   espressif-s3-devkitc-1
 #              ESP32-S3-DevKitC-1 v1.1 N8R8 (status LED, no display)
@@ -79,6 +83,16 @@ case "$BOARD" in
     TARGET=esp32s3
     DEFAULTS="$DEFAULTS;devices/sdkconfig.$BOARD"
     PORTS="/dev/cu.usbserial-* /dev/cu.wchusbserial* /dev/ttyUSB*"
+    ;;
+  reterminal-sticky)
+    TARGET=esp32s3
+    DEFAULTS="$DEFAULTS;devices/sdkconfig.muse;devices/sdkconfig.$BOARD"
+    PORTS="/dev/cu.usbserial-* /dev/cu.wchusbserial* /dev/ttyUSB* /dev/cu.usbmodem* /dev/ttyACM*"
+    ;;
+  reterminal-sticky-link)
+    TARGET=esp32s3
+    DEFAULTS="$DEFAULTS;devices/sdkconfig.$BOARD"
+    PORTS="/dev/cu.usbserial-* /dev/cu.wchusbserial* /dev/ttyUSB* /dev/cu.usbmodem* /dev/ttyACM*"
     ;;
   home-assistant-voice|seeed-respeaker-lite)
     TARGET=esp32s3
