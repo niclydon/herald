@@ -169,14 +169,13 @@ idf_component_register(
     REQUIRES ${GADGET_REQUIRES}
 )
 
-<<<<<<< HEAD
 if(CONFIG_HOMEHUB_LAN_CONTROL)
     if(NOT EXISTS "${CONFIG_HOMEHUB_LAN_CERT_FILE}" OR NOT EXISTS "${CONFIG_HOMEHUB_LAN_KEY_FILE}")
         message(FATAL_ERROR "Herald LAN requires private certificate/key files; run herald-mcp provision")
     endif()
     target_add_binary_data(${COMPONENT_LIB} "${CONFIG_HOMEHUB_LAN_CERT_FILE}" TEXT RENAME_TO herald_cert)
     target_add_binary_data(${COMPONENT_LIB} "${CONFIG_HOMEHUB_LAN_KEY_FILE}" TEXT RENAME_TO herald_key)
-=======
+endif()
 # fast_gcm.c takes over ESP-IDF's one-shot AES-GCM entry points (PSA's AES-GCM
 # driver calls them across archives, so the linker can redirect them).
 if(CONFIG_HOMEHUB_FAST_GCM)
@@ -197,5 +196,4 @@ if(CONFIG_HOMEHUB_BLE_COEX)
         "-Wl,--wrap=coex_schm_status_bit_clear"
         "-Wl,-u,__wrap_coex_schm_status_bit_set"
         "-Wl,-u,__wrap_coex_schm_status_bit_clear")
->>>>>>> upstream/main
 endif()
