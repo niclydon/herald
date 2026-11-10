@@ -153,6 +153,10 @@ if(CONFIG_HOMEHUB_LED_BACKEND_CYD_ILI9341)
     list(APPEND GADGET_REQUIRES esp_lcd_ili9341)
 endif()
 
+if(CONFIG_HOMEHUB_LED_BACKEND_WAVESHARE_S3_ST7796)
+    list(APPEND GADGET_REQUIRES esp_lcd_st7796)
+endif()
+
 if(CONFIG_HOMEHUB_SENSECAP_SENSORS)
     list(APPEND GADGET_SRCS "sensecap_sensors.c")
 endif()
@@ -169,12 +173,12 @@ if(CONFIG_HOMEHUB_VOICE)
         "voice_muse_chat.c"
         "voice_player.c"
     )
-    if(CONFIG_HOMEHUB_LED_BACKEND_RESPEAKER_LITE)
-        list(APPEND GADGET_SRCS "voice_board_respeaker_lite.c")
-    elseif(CONFIG_HOMEHUB_I2S_SPEAKER)
+    # Herald's HW678 I2S speaker board predates upstream's voice-board
+    # choice and has no driver in its selector; every other board uses it.
+    if(CONFIG_HOMEHUB_I2S_SPEAKER)
         list(APPEND GADGET_SRCS "voice_board_herald.c")
     else()
-        list(APPEND GADGET_SRCS "voice_board.c")
+        include("voice_board_select.cmake")
     endif()
 endif()
 
