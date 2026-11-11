@@ -14,7 +14,7 @@ Linux suite 792 passed, 2 skipped).
 
 The four commits are #359, #347, #373, and #377. #359 halves the
 FNK0104B LVGL draw buffers: `DRAW_BUF_LINES` goes from 32 to 16, so
-two 240-row RGB565 buffers take 15 KB of internal RAM instead of
+two 240-wide RGB565 buffers take 15 KB of internal RAM instead of
 30 KB, leaving an 8 KB block free once paired so the Muse VM
 credentials lookup task can start (at 32 rows every push-to-talk
 turn failed with CAN'T REACH MUSE). #347 adds the
