@@ -21,6 +21,7 @@
 #include "esp_psram.h"
 #endif
 #include "diagnostic_log.h"
+#include "link_events.h"
 #if CONFIG_HOMEHUB_REMOTE_LEDS
 #include "remote_led.h"
 #endif
@@ -71,6 +72,9 @@ void app_main(void) {
                  "support log capture disabled: PSRAM unavailable");
     }
 #endif
+    if (!link_events_init()) {
+        ESP_LOGW("link.main", "connectivity history disabled: PSRAM unavailable");
+    }
     ESP_LOGI("link.main", CONFIG_GADGET_PRODUCT_NAME " starting");
 #if CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP && CONFIG_SPIRAM_IGNORE_NOTFOUND
     // The C5's TCP windows are sized for lwIP buffers in PSRAM. Its defaults
