@@ -760,6 +760,20 @@ the design, the Wi-Fi protocol and the numbers.
   `../protocols/VIDEO.md`'s Trust section when changing the transport, the
   decoders' glue (`muse_vdec.c`) or the drawing (`fill()` in `muse_video.c`).
 
+## WebAssembly apps
+
+WebAssembly apps are an optional component, off by default. Enable them on
+boards with the full LVGL UI and PSRAM using
+`MUSE_APPS=1 tools/muse/board.sh build|flash <board>`
+(`CONFIG_MUSE_WASM_APPS`, overlay `devices/sdkconfig.muse-apps`). On the
+gadget they stay off until the person turns on Run apps in Settings.
+
+Before changing or testing apps or their integration hooks, read
+[the component instructions](components/muse_apps/AGENTS.md). They cover
+the API, runtime, memory, capabilities, storage, input and focused tests.
+For app authoring and the guide to send Muse, see
+[the SDK README](components/muse_apps/sdk/README.md).
+
 ## Configuration gotchas
 
 - `sdkconfig.defaults.esp32c5` is loaded after `sdkconfig.defaults` for C5
@@ -881,9 +895,9 @@ against the policy, and `link.register`'s size.
 
 Muse calls a gadget's commands by name: the firmware lists them in
 `link.register` and answers each `link.invoke`. A command you add lives in two
-places, which must use the same name. (`device.health`, `device.guide` and
-`device.ota` are handled in `noise_control.cpp` itself; everything else goes
-through `on_ws_command()`.)
+places, which must use the same name. (`device.health` and `device.guide` are
+handled in `noise_control.cpp` itself; everything else goes through
+`on_ws_command()`.)
 
 1. **Advertise it** in `build_register_json()` in `main/noise_control.cpp`:
    `add_command(commands, "relay.set", "<description>", required, optional)`.
